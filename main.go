@@ -19,28 +19,31 @@ func main() {
 		conn, err := ln.Accept()
 		if err != nil {
 			// handle error
-			log.Printf("Got error: %v\n", err)
+			log.Printf("Got error on accepting connection: %v\n", err)
 			continue
 		}
 
-		poop := make([]byte, 1024)
+		go RedisConnection(conn)
+	}
+}
 
-		n, err := conn.Read(poop)
+func RedisConnection(conn net.Conn) {
+	defer conn.Close()
+
+	for {
+		command := make([]byte, 1024)
+		n, err := conn.Read(command)
 		if err != nil {
 			log.Printf("Got error reading: %v\n", err)
-			continue
+			return
 		}
 		log.Printf("Read %d bytes\n", n)
-		log.Printf("Read value: %s", string(poop))
+		log.Printf("Read value: %s", string(command))
 
-		// so i need to parse the request and get just the body
-
-		n, err = conn.Write(poop)
+		n, err = conn.Write(command)
 		if err != nil {
 			log.Printf("Got error writing: %v\n", err)
-			continue
+			return
 		}
-
-		conn.Close()
 	}
 }
