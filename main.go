@@ -1,9 +1,12 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"net"
 )
+
+var invalidMessageErr = errors.New("invalid message")
 
 func main() {
 	ln, err := net.Listen("tcp", ":6379")
@@ -30,21 +33,53 @@ func main() {
 func RedisConnection(conn net.Conn) {
 	defer conn.Close()
 
+	buff := make([]byte, 0, 1024)
+	bLen := 0
 	for {
-		commandBuff := make([]byte, 1024)
-		n, err := conn.Read(commandBuff)
-		if err != nil {
-			log.Printf("Got error reading: %v\n", err)
-			return
+		message := make([]byte, 0, 512)
+		messageComplete := false
+		for messageComplete == false {
+			data := make([]byte, 1024)
+			n, err := conn.Read(data)
+			if err != nil {
+				log.Printf("Got error reading: %v\n", err)
+				return
+			}
+			bLen += n
+			buff = append(buff, data...)
+			n, err = parseMessage(buff, &message)
+			if err != nil {
+				log.Printf("Got error parsing: %v\n", err)
+				return
+			}
+			buff = buff[n:]
+			bLen -= n
+			if n > 0 {
+				messageComplete = true
+			}
 		}
-		command := commandBuff[:n]
-		log.Printf("Read %d bytes\n", n)
-		log.Printf("Read value: %s", string(command))
 
-		n, err = conn.Write(command)
+		log.Printf("Read value: '%s'", string(message))
+
+		_, err := conn.Write(message)
 		if err != nil {
 			log.Printf("Got error writing: %v\n", err)
 			return
 		}
 	}
+}
+
+func parseMessage(buff []byte, message *[]byte) (int, error) {
+	log.Printf("got '%c'", buff[0])
+	if buff[0] == '+' || buff[0] == '-' || buff[0] == ':' {
+		for i, b := range buff {
+			if b == '\n' {
+				*message = append(*message, buff[:i]...)
+				return i, nil
+			}
+		}
+		return 0, invalidMessageErr
+	}
+
+	return 0, invalidMessageErr
 }
