@@ -31,12 +31,13 @@ func RedisConnection(conn net.Conn) {
 	defer conn.Close()
 
 	for {
-		command := make([]byte, 1024)
-		n, err := conn.Read(command)
+		commandBuff := make([]byte, 1024)
+		n, err := conn.Read(commandBuff)
 		if err != nil {
 			log.Printf("Got error reading: %v\n", err)
 			return
 		}
+		command := commandBuff[:n]
 		log.Printf("Read %d bytes\n", n)
 		log.Printf("Read value: %s", string(command))
 
