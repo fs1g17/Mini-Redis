@@ -49,17 +49,21 @@ func RedisConnection(conn net.Conn) {
 			}
 			log.Printf("data: '%s' \n", string(data))
 			buff = append(buff, data[:n]...)
-			message, err = parseMessage(buff)
+			readMessage, bytesRead, err := parseMessage(buff)
 			if err != nil {
 				log.Printf("Got error parsing: %v\n", err)
 				return
 			}
 
-			if len(message) > 0 {
+			if len(readMessage) > 0 {
 				//reslice the buffer
 				newBuff := make([]byte, 0, 1024)
-				buff = append(newBuff, buff[len(message):]...)
+				buff = append(newBuff, buff[bytesRead:]...)
+				message = readMessage
 			}
+
+			log.Printf("Read innerMessage: '%s'", string(readMessage))
+			log.Printf("Bytes read: '%d'", bytesRead)
 		}
 
 		log.Printf("Read value: '%s'", string(message))
@@ -81,7 +85,7 @@ func RedisConnection(conn net.Conn) {
 	}
 }
 
-func parseMessage(buff []byte) ([]byte, error) {
+func parseMessage(buff []byte) ([]byte, int, error) {
 	message := make([]byte, 0, 512)
 
 	// we can find the first \n with buff.IndexByte(data, '\n'), saw on the internet
@@ -89,13 +93,13 @@ func parseMessage(buff []byte) ([]byte, error) {
 		countEnd := bytes.IndexByte(buff, '\n')
 		if countEnd == -1 {
 			// incomlpete data, need more bytes
-			return message, nil
+			return message, 0, nil
 		}
 
 		// countEnd-1 because we need to stop before the \r
 		count, err := strconv.Atoi(string(buff[1 : countEnd-1]))
 		if err != nil {
-			return message, invalidMessageErr // doesn't parse correctly
+			return message, 0, invalidMessageErr // doesn't parse correctly
 		}
 
 		start := countEnd + 1 // we found the first \n, start of the data is after \n
@@ -103,19 +107,20 @@ func parseMessage(buff []byte) ([]byte, error) {
 			// instead of passing start, we can slice the buff
 			data, readBytes, err := parseData(buff[start:])
 			if err != nil {
-				return message, invalidMessageErr // invalid data
+				return message, 0, invalidMessageErr // invalid data
 			}
 			if readBytes == 0 {
-				return message, nil // incomplete data, need more bytes
+				return message, 0, nil // incomplete data, need more bytes
 			}
 
 			message = append(message, data...)
 			start += readBytes
 		}
-		return message, nil
+
+		return message, start, nil
 	}
 
-	return message, invalidMessageErr
+	return message, 0, invalidMessageErr
 }
 
 // returns the read data and number of bytes read
@@ -156,7 +161,7 @@ func parseData(buff []byte) ([]byte, int, error) {
 
 func getResponse(message []byte) ([]byte, error) {
 	if string(message) == "PING" {
-		return []byte("+PONG"), nil
+		return []byte("+PONG\r\n"), nil
 	}
 
 	return nil, noMatchingResponseErr
