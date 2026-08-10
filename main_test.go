@@ -2,22 +2,38 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"net"
 	"testing"
 )
 
-func Test_Server_Connects(t *testing.T) {
-	conn, err := net.Dial("tcp", ":6379")
+var testServerFailure = errors.New("couldn't start test server")
 
+func startTestServer() (string, error) {
+	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
-		t.Error("couldn't connect to server: ", err)
+		return "", testServerFailure
 	}
 
-	defer conn.Close()
+	go func() {
+		_conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+
+		go RedisConnection(_conn)
+	}()
+
+	return ln.Addr().String(), nil
 }
 
 func Test_Ping(t *testing.T) {
-	conn, err := net.Dial("tcp", ":6379")
+	addrStr, err := startTestServer()
+	if err != nil {
+		t.Fatal("couldn't start test server: ", err)
+	}
+
+	conn, err := net.Dial("tcp", addrStr)
 
 	if err != nil {
 		t.Fatal("couldn't connect to Redis server: ", err)
@@ -39,6 +55,6 @@ func Test_Ping(t *testing.T) {
 	}
 
 	if !bytes.Equal(expectedOut, out[:bytesRead]) {
-		t.Errorf("expected '%s', got '%s'\n", string(expectedOut), string(out))
+		t.Errorf("expected '%s', got '%s'\n", string(expectedOut), string(out[:bytesRead]))
 	}
 }
