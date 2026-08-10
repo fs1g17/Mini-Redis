@@ -40,7 +40,8 @@ func RedisConnection(conn net.Conn) {
 	buff := make([]byte, 0, 1024)
 	for {
 		message := make([]byte, 0)
-		for len(message) == 0 {
+		completedMessage := false
+		for completedMessage == false {
 			data := make([]byte, 1024)
 			n, err := conn.Read(data)
 			if err != nil {
@@ -55,11 +56,12 @@ func RedisConnection(conn net.Conn) {
 				return
 			}
 
-			if len(readMessage) > 0 {
+			if bytesRead > 0 {
 				//reslice the buffer
 				newBuff := make([]byte, 0, 1024)
 				buff = append(newBuff, buff[bytesRead:]...)
 				message = readMessage
+				completedMessage = true
 			}
 
 			log.Printf("Read innerMessage: '%s'", string(readMessage))
