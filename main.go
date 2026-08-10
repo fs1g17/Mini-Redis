@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"log"
 	"net"
+	"strconv"
 )
 
 var invalidMessageErr = errors.New("invalid message")
 var invalidDataErr = errors.New("invalid data")
+var noMatchingResponseErr = errors.New("no matching response for message")
 
 func main() {
 	ln, err := net.Listen("tcp", ":6379")
@@ -62,7 +65,15 @@ func RedisConnection(conn net.Conn) {
 		log.Printf("Read value: '%s'", string(message))
 		log.Printf("Raw bytes: '%v'", message)
 
-		_, err := conn.Write(message)
+		response, err := getResponse(message)
+		if err != nil {
+			log.Printf("Got error writing: %v\n", err)
+			return
+		}
+
+		log.Printf("Writing response: '%s'", string(response))
+
+		_, err = conn.Write(response)
 		if err != nil {
 			log.Printf("Got error writing: %v\n", err)
 			return
@@ -72,11 +83,25 @@ func RedisConnection(conn net.Conn) {
 
 func parseMessage(buff []byte) ([]byte, error) {
 	message := make([]byte, 0, 512)
+
+	// we can find the first \n with buff.IndexByte(data, '\n'), saw on the internet
 	if buff[0] == '*' {
-		count := int(buff[1] - '0')
-		start := 4 // omit the *,1,\r,\n, bytes
+		countEnd := bytes.IndexByte(buff, '\n')
+		if countEnd == -1 {
+			// incomlpete data, need more bytes
+			return message, nil
+		}
+
+		// countEnd-1 because we need to stop before the \r
+		count, err := strconv.Atoi(string(buff[1 : countEnd-1]))
+		if err != nil {
+			return message, invalidMessageErr // doesn't parse correctly
+		}
+
+		start := countEnd + 1 // we found the first \n, start of the data is after \n
 		for range count {
-			data, readBytes, err := parseData(buff, start)
+			// instead of passing start, we can slice the buff
+			data, readBytes, err := parseData(buff[start:])
 			if err != nil {
 				return message, invalidMessageErr // invalid data
 			}
@@ -95,26 +120,44 @@ func parseMessage(buff []byte) ([]byte, error) {
 
 // returns the read data and number of bytes read
 // so we can start reading new line
-func parseData(buff []byte, start int) ([]byte, int, error) {
+func parseData(buff []byte) ([]byte, int, error) {
 	data := make([]byte, 0, 512)
-	if buff[start] == '$' {
-		length := int(buff[start+1] - '0')
-		// check if there are enough bytes to read
-		// $4\r\n - that's 4 bytes, then the end \r\n is the last 2, so 6 total
-		if len(buff) < start+6+length {
-			return data, 0, nil // if the data is incomplete -> message incomplete
+	if buff[0] == '$' {
+		lengthEnd := bytes.IndexByte(buff, '\n')
+		if lengthEnd == -1 {
+			// incomplete data, need more bytes
+			return data, 0, nil
 		}
 
-		// the 4th byte is the start of the data
+		length, err := strconv.Atoi(string(buff[1 : lengthEnd-1]))
+		if err != nil {
+			return data, 0, invalidDataErr
+		}
+
+		// check if there's enough bytes to read
+		// length end is \n
+		// data starts at lengthEnd+1 - the entire length of the data, then \r\n - which is +2
+		// so it's lengthEnd + 1 + length + 2 - should take us to \r\n of the data
+		// which means we simplify it to lengthEnd + length + 3
+		if len(buff) < lengthEnd+length+3 {
+			return data, 0, nil // if the data is incomplete -> message incomplete
+		}
 		// we only read the data, but we "consume" the \r\n as well
-		for i := start + 4; i < start+4+length; i++ {
+		for i := lengthEnd + 1; i < lengthEnd+1+length; i++ {
 			data = append(data, buff[i])
 		}
 
-		// return data, bytes consumed is length of data + 6
-		// because $, 4, \r, \n, \r, \n
-		return data, length + 6, nil
+		// last byte consumed index is: lengthEnd+1+length+2 = lengthEnd+length+3
+		return data, lengthEnd + length + 3, nil
 	}
 
 	return data, 0, invalidDataErr
+}
+
+func getResponse(message []byte) ([]byte, error) {
+	if string(message) == "PING" {
+		return []byte("+PONG"), nil
+	}
+
+	return nil, noMatchingResponseErr
 }
