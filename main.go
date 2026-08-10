@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -39,7 +40,7 @@ func RedisConnection(conn net.Conn) {
 
 	buff := make([]byte, 0, 1024)
 	for {
-		message := make([]byte, 0)
+		message := make([][]byte, 0)
 		completedMessage := false
 		for completedMessage == false {
 			data := make([]byte, 1024)
@@ -64,11 +65,15 @@ func RedisConnection(conn net.Conn) {
 				completedMessage = true
 			}
 
-			log.Printf("Read innerMessage: '%s'", string(readMessage))
+			log.Println("[")
+			for i := range len(readMessage) {
+				log.Println(string(readMessage[i]))
+			}
+			log.Println("]")
+
 			log.Printf("Bytes read: '%d'", bytesRead)
 		}
 
-		log.Printf("Read value: '%s'", string(message))
 		log.Printf("Raw bytes: '%v'", message)
 
 		response, err := getResponse(message)
@@ -87,8 +92,8 @@ func RedisConnection(conn net.Conn) {
 	}
 }
 
-func parseMessage(buff []byte) ([]byte, int, error) {
-	message := make([]byte, 0, 512)
+func parseMessage(buff []byte) ([][]byte, int, error) {
+	message := make([][]byte, 0, 512)
 
 	// we can find the first \n with buff.IndexByte(data, '\n'), saw on the internet
 	if buff[0] == '*' {
@@ -105,6 +110,8 @@ func parseMessage(buff []byte) ([]byte, int, error) {
 		}
 
 		start := countEnd + 1 // we found the first \n, start of the data is after \n
+
+		// this is where we get
 		for range count {
 			// instead of passing start, we can slice the buff
 			data, readBytes, err := parseData(buff[start:])
@@ -115,7 +122,7 @@ func parseMessage(buff []byte) ([]byte, int, error) {
 				return message, 0, nil // incomplete data, need more bytes
 			}
 
-			message = append(message, data...)
+			message = append(message, data)
 			start += readBytes
 		}
 
@@ -161,9 +168,17 @@ func parseData(buff []byte) ([]byte, int, error) {
 	return data, 0, invalidDataErr
 }
 
-func getResponse(message []byte) ([]byte, error) {
-	if string(message) == "PING" {
-		return []byte("+PONG\r\n"), nil
+func getResponse(message [][]byte) ([]byte, error) {
+	if len(message) == 1 {
+		if string(message[0]) == "PING" {
+			return []byte("+PONG\r\n"), nil
+		}
+	}
+
+	if len(message) == 2 {
+		if (string(message[0])) == "ECHO" {
+			return fmt.Appendf(nil, "+%s\r\n", string(message[1])), nil
+		}
 	}
 
 	return nil, noMatchingResponseErr
