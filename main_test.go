@@ -92,24 +92,39 @@ cases to test:
   - valid data
   - incomplete data
   - invalid data
-    -
+  - negative length
+  - incorrect byte length
 */
 func Test_ParseDataCompleteInput(t *testing.T) {
-	input := []byte("$5\r\nhello\r\n")
-	expectedString := "hello"
-	expectedBytes := []byte(expectedString)
-	expectedReadBytes := len(input)
-	out, readBytes, err := parseData(input)
-	if err != nil {
-		t.Fatalf("got error: %v", err)
+	tests := []struct {
+		input          []byte
+		expectedString string
+	}{
+		{
+			input:          []byte("$5\r\nhello\r\n"),
+			expectedString: "hello",
+		},
+		{
+			input:          []byte("$0\r\n\r\n"),
+			expectedString: "",
+		},
 	}
 
-	if !bytes.Equal(expectedBytes, out[:len(expectedString)]) {
-		t.Fatalf("expected: %s, got: %s\n", string(expectedBytes), string(out[:len(expectedString)]))
-	}
+	for _, tt := range tests {
+		expectedBytes := []byte(tt.expectedString)
+		expectedReadBytes := len(tt.input)
+		out, readBytes, err := parseData(tt.input)
+		if err != nil {
+			t.Fatalf("got error: %v", err)
+		}
 
-	if readBytes != expectedReadBytes {
-		t.Fatalf("expected read bytes: %d, got: %d", expectedReadBytes, readBytes)
+		if !bytes.Equal(expectedBytes, out[:len(tt.expectedString)]) {
+			t.Fatalf("expected: %s, got: %s\n", string(expectedBytes), string(out[:len(tt.expectedString)]))
+		}
+
+		if readBytes != expectedReadBytes {
+			t.Fatalf("expected read bytes: %d, got: %d", expectedReadBytes, readBytes)
+		}
 	}
 }
 
@@ -145,19 +160,41 @@ func Test_ParseDataIncompleteInput(t *testing.T) {
 
 func Test_ParseDataInvalidInput(t *testing.T) {
 	input := []byte("$-2\r\nhello\r\n")
-	expectedString := "hello"
-	expectedBytes := []byte(expectedString)
-	expectedReadBytes := len(input)
 	out, readBytes, err := parseData(input)
-	if err != nil {
-		t.Fatalf("got error: %v", err)
+	if err == nil {
+		t.Fatal("should've got error")
 	}
 
-	if !bytes.Equal(expectedBytes, out[:len(expectedString)]) {
-		t.Fatalf("expected: %s, got: %s\n", string(expectedBytes), string(out[:len(expectedString)]))
+	if !errors.Is(err, invalidDataErr) {
+		t.Fatalf("expected invalidDataErr, but got %v\n", err)
 	}
 
-	if readBytes != expectedReadBytes {
-		t.Fatalf("expected read bytes: %d, got: %d", expectedReadBytes, readBytes)
+	if len(out) != 0 {
+		t.Fatalf("expected length of output to be 0, got: %d", len(out))
+	}
+
+	if readBytes != 0 {
+		t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+	}
+}
+
+func Test_ParseDataInvalidData(t *testing.T) {
+	// too short or too long
+	input := []byte("$2\r\nh\r\n")
+	out, readBytes, err := parseData(input)
+	if err == nil {
+		t.Fatal("should've got error")
+	}
+
+	if !errors.Is(err, invalidDataErr) {
+		t.Fatalf("expected invalidDataErr, but got %v\n", err)
+	}
+
+	if len(out) != 0 {
+		t.Fatalf("expected length of output to be 0, got: %d", len(out))
+	}
+
+	if readBytes != 0 {
+		t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
 	}
 }

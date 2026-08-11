@@ -158,6 +158,10 @@ func parseData(buff []byte) ([]byte, int, error) {
 			return data, 0, invalidDataErr
 		}
 
+		if length < 0 {
+			return data, 0, invalidDataErr
+		}
+
 		// check if there's enough bytes to read
 		// length end is \n
 		// data starts at lengthEnd+1 - the entire length of the data, then \r\n - which is +2
