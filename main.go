@@ -147,13 +147,30 @@ func parseData(buff []byte) ([]byte, int, error) {
 	}
 
 	if buff[0] == '$' {
-		lengthEnd := bytes.IndexByte(buff, '\n')
+		lengthEnd := bytes.Index(buff, []byte("\r\n"))
 		if lengthEnd == -1 {
-			// incomplete data, need more bytes
+			// $ -> incomplete
+			// $4 -> incomplete
+			// $4\r -> incomplete
+			// $\r -> invalid DONE
+			// $\n -> invalid DONE
+
+			// so if it contains just \n then it's invalid
+			if bytes.IndexByte(buff, '\n') > 0 {
+				return data, 0, invalidDataErr
+			}
+
+			// if it contains \r but at second position, length is missing
+			if bytes.IndexByte(buff, '\r') == 1 {
+				return data, 0, invalidDataErr
+			}
+
+			// rest of the cases are incomplete
+			// i.e. it contains \r but at postion greater than 1, and \n is missing
 			return data, 0, nil
 		}
 
-		length, err := strconv.Atoi(string(buff[1 : lengthEnd-1]))
+		length, err := strconv.Atoi(string(buff[1:lengthEnd]))
 		if err != nil {
 			return data, 0, invalidDataErr
 		}
@@ -164,26 +181,26 @@ func parseData(buff []byte) ([]byte, int, error) {
 
 		// check if there's enough bytes to read
 		// length end is \n
-		// data starts at lengthEnd+1 - the entire length of the data, then \r\n - which is +2
-		// so it's lengthEnd + 1 + length + 2 - should take us to \r\n of the data
-		// which means we simplify it to lengthEnd + length + 3
-		if len(buff) < lengthEnd+length+3 {
+		// data starts at lengthEnd+2 - the entire length of the data, then \r\n - which is +2
+		// so it's lengthEnd + 2 + length + 2 - should take us to \r\n of the data
+		// which means we simplify it to lengthEnd + length + 4
+		if len(buff) < lengthEnd+length+4 {
 			return data, 0, nil // if the data is incomplete -> message incomplete
 		}
 
 		// if after the data we don't get \r\n, then data is malformed
 		// i.e it could be longer than specified - e.g. $2\r\nhi\r\n
-		if buff[lengthEnd+length+1] != '\r' || buff[lengthEnd+length+2] != '\n' {
+		if buff[lengthEnd+length+2] != '\r' || buff[lengthEnd+length+3] != '\n' {
 			return data, 0, invalidDataErr
 		}
 
 		// we only read the data, but we "consume" the \r\n as well
-		for i := lengthEnd + 1; i < lengthEnd+1+length; i++ {
+		for i := lengthEnd + 2; i < lengthEnd+2+length; i++ {
 			data = append(data, buff[i])
 		}
 
-		// last byte consumed index is: lengthEnd+1+length+2 = lengthEnd+length+3
-		return data, lengthEnd + length + 3, nil
+		// last byte consumed index is: lengthEnd+2+length+2 = lengthEnd+length+4
+		return data, lengthEnd + length + 4, nil
 	}
 
 	return data, 0, invalidDataErr

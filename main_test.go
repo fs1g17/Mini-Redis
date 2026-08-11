@@ -178,6 +178,41 @@ func Test_ParseDataNegativeLength(t *testing.T) {
 	}
 }
 
+func Test_ParseDataMissingLength(t *testing.T) {
+	tests := []struct {
+		input []byte
+	}{
+		{
+			input: []byte("$\r\nhello\r\n"),
+		},
+		{
+			input: []byte("$\n"),
+		},
+		{
+			input: []byte("$\r"),
+		},
+	}
+
+	for _, tt := range tests {
+		out, readBytes, err := parseData(tt.input)
+		if err == nil {
+			t.Fatal("should've got error")
+		}
+
+		if !errors.Is(err, invalidDataErr) {
+			t.Fatalf("expected invalidDataErr, but got %v\n", err)
+		}
+
+		if len(out) != 0 {
+			t.Fatalf("expected length of output to be 0, got: %d", len(out))
+		}
+
+		if readBytes != 0 {
+			t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+		}
+	}
+}
+
 func Test_ParseDataTooShort(t *testing.T) {
 	// if it's too short - then we shouldn't get an error
 	// we treat it as incomplete - can't rely on \r\n because data can contain itf
