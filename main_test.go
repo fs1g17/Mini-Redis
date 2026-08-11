@@ -158,7 +158,7 @@ func Test_ParseDataIncompleteInput(t *testing.T) {
 	}
 }
 
-func Test_ParseDataInvalidInput(t *testing.T) {
+func Test_ParseDataNegativeLength(t *testing.T) {
 	input := []byte("$-2\r\nhello\r\n")
 	out, readBytes, err := parseData(input)
 	if err == nil {
@@ -178,16 +178,36 @@ func Test_ParseDataInvalidInput(t *testing.T) {
 	}
 }
 
-func Test_ParseDataInvalidData(t *testing.T) {
-	// too short or too long
+func Test_ParseDataTooShort(t *testing.T) {
+	// if it's too short - then we shouldn't get an error
+	// we treat it as incomplete - can't rely on \r\n because data can contain itf
 	input := []byte("$2\r\nh\r\n")
 	out, readBytes, err := parseData(input)
+	if err != nil {
+		t.Fatalf("didn't expect error, but got %v\n", err)
+	}
+
+	if len(out) != 0 {
+		t.Fatalf("expected length of output to be 0, got: %d", len(out))
+	}
+
+	if readBytes != 0 {
+		t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+	}
+}
+
+func Test_ParseDataTooLong(t *testing.T) {
+	// if it's too long, then we don't land \r\n - but if we do because the data is like hel\r\n
+	// then the rest of the byte slice will be treated like start of the next command
+	// and it will be invalid
+	input := []byte("$2\r\nhello\r\n")
+	out, readBytes, err := parseData(input)
 	if err == nil {
-		t.Fatal("should've got error")
+		t.Fatal("expected error")
 	}
 
 	if !errors.Is(err, invalidDataErr) {
-		t.Fatalf("expected invalidDataErr, but got %v\n", err)
+		t.Fatalf("expected invalidDataErr, but got: %v\n", err)
 	}
 
 	if len(out) != 0 {

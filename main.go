@@ -170,6 +170,13 @@ func parseData(buff []byte) ([]byte, int, error) {
 		if len(buff) < lengthEnd+length+3 {
 			return data, 0, nil // if the data is incomplete -> message incomplete
 		}
+
+		// if after the data we don't get \r\n, then data is malformed
+		// i.e it could be longer than specified - e.g. $2\r\nhi\r\n
+		if buff[lengthEnd+length+1] != '\r' || buff[lengthEnd+length+2] != '\n' {
+			return data, 0, invalidDataErr
+		}
+
 		// we only read the data, but we "consume" the \r\n as well
 		for i := lengthEnd + 1; i < lengthEnd+1+length; i++ {
 			data = append(data, buff[i])
