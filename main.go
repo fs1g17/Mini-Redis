@@ -147,27 +147,39 @@ func parseData(buff []byte) ([]byte, int, error) {
 	}
 
 	if buff[0] == '$' {
-		lengthEnd := bytes.Index(buff, []byte("\r\n"))
-		if lengthEnd == -1 {
-			// $ -> incomplete
-			// $4 -> incomplete
-			// $4\r -> incomplete
-			// $\r -> invalid DONE
-			// $\n -> invalid DONE
-
-			// so if it contains just \n then it's invalid
-			if bytes.IndexByte(buff, '\n') > 0 {
-				return data, 0, invalidDataErr
-			}
-
-			// if it contains \r but at second position, length is missing
-			if bytes.IndexByte(buff, '\r') == 1 {
-				return data, 0, invalidDataErr
-			}
-
-			// rest of the cases are incomplete
-			// i.e. it contains \r but at postion greater than 1, and \n is missing
+		if len(buff) < 2 {
+			// incomplete data
 			return data, 0, nil
+		}
+
+		// ok so instead of all that we can read length until we get CR
+		i := 1
+		for i = 1; i < len(buff); i++ {
+			if buff[i] >= '0' && buff[i] <= '9' {
+				// it is a digit, append to length slice
+				continue
+			} else if buff[i] == '\r' {
+				break
+			} else {
+				return data, 0, invalidDataErr
+			}
+		}
+
+		// position of \r
+		lengthEnd := i
+		// missing length: $\r\n
+		if lengthEnd == 1 {
+			return data, 0, invalidDataErr
+		}
+
+		// now we are at \r - need to validate next byte is \n
+		i++
+		if i >= len(buff) {
+			// expecting LF, but buffer too small, incomplete data
+			return data, 0, nil
+		}
+		if buff[i] != '\n' {
+			return data, 0, invalidDataErr
 		}
 
 		length, err := strconv.Atoi(string(buff[1:lengthEnd]))
