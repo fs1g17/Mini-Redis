@@ -141,6 +141,11 @@ func parseMessage(buff []byte) ([][]byte, int, error) {
 // so we can start reading new line
 func parseData(buff []byte) ([]byte, int, error) {
 	data := make([]byte, 0, 512)
+	if len(buff) == 0 {
+		// incomplete data, need more bytes
+		return data, 0, nil
+	}
+
 	if buff[0] == '$' {
 		lengthEnd := bytes.IndexByte(buff, '\n')
 		if lengthEnd == -1 {

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"net"
 	"testing"
 )
@@ -27,7 +28,7 @@ func startTestServer() (string, error) {
 	return ln.Addr().String(), nil
 }
 
-func Test_Funcs(t *testing.T) {
+func Test_SimpleFuncs(t *testing.T) {
 	tests := []struct {
 		command string
 		payload []byte
@@ -83,5 +84,80 @@ func Test_Funcs(t *testing.T) {
 		if !bytes.Equal(tt.want, out[:bytesRead]) {
 			t.Errorf("expected '%s', got '%s'\n", string(tt.want), string(out[:bytesRead]))
 		}
+	}
+}
+
+/*
+cases to test:
+  - valid data
+  - incomplete data
+  - invalid data
+    -
+*/
+func Test_ParseDataCompleteInput(t *testing.T) {
+	input := []byte("$5\r\nhello\r\n")
+	expectedString := "hello"
+	expectedBytes := []byte(expectedString)
+	expectedReadBytes := len(input)
+	out, readBytes, err := parseData(input)
+	if err != nil {
+		t.Fatalf("got error: %v", err)
+	}
+
+	if !bytes.Equal(expectedBytes, out[:len(expectedString)]) {
+		t.Fatalf("expected: %s, got: %s\n", string(expectedBytes), string(out[:len(expectedString)]))
+	}
+
+	if readBytes != expectedReadBytes {
+		t.Fatalf("expected read bytes: %d, got: %d", expectedReadBytes, readBytes)
+	}
+}
+
+func Test_ParseDataIncompleteInput(t *testing.T) {
+	type testStruct struct {
+		input []byte
+	}
+
+	tests := make([]testStruct, 0, 10)
+
+	str := "$5\r\nhello\r\n"
+	for i := 0; i < len(str)-1; i++ {
+		tests = append(tests, testStruct{input: []byte(str[:i])})
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("testing hello substring length: %d\n", len(tt.input)), func(t *testing.T) {
+			out, readBytes, err := parseData(tt.input)
+			if err != nil {
+				t.Fatal("shouldn't have an error")
+			}
+
+			if readBytes != 0 {
+				t.Fatal("should've read 0 bytes")
+			}
+
+			if len(out) != 0 {
+				t.Fatal("should have empty output")
+			}
+		})
+	}
+}
+
+func Test_ParseDataInvalidInput(t *testing.T) {
+	input := []byte("$-2\r\nhello\r\n")
+	expectedString := "hello"
+	expectedBytes := []byte(expectedString)
+	expectedReadBytes := len(input)
+	out, readBytes, err := parseData(input)
+	if err != nil {
+		t.Fatalf("got error: %v", err)
+	}
+
+	if !bytes.Equal(expectedBytes, out[:len(expectedString)]) {
+		t.Fatalf("expected: %s, got: %s\n", string(expectedBytes), string(out[:len(expectedString)]))
+	}
+
+	if readBytes != expectedReadBytes {
+		t.Fatalf("expected read bytes: %d, got: %d", expectedReadBytes, readBytes)
 	}
 }
