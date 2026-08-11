@@ -174,6 +174,9 @@ func getResponse(message [][]byte) ([]byte, error) {
 	case "PING":
 		return []byte("+PONG\r\n"), nil
 	case "ECHO":
+		if len(message) != 2 {
+			return []byte("-ERR wrong number of arguments for 'echo' command\r\n"), nil
+		}
 		return fmt.Appendf(nil, "$%d\r\n%s\r\n", len(message[1]), string(message[1])), nil
 	}
 

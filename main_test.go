@@ -27,98 +27,61 @@ func startTestServer() (string, error) {
 	return ln.Addr().String(), nil
 }
 
-func Test_Ping(t *testing.T) {
-	addrStr, err := startTestServer()
-	if err != nil {
-		t.Fatal("couldn't start test server: ", err)
+func Test_Funcs(t *testing.T) {
+	tests := []struct {
+		command string
+		payload []byte
+		want    []byte
+	}{
+		{
+			command: "PING",
+			payload: []byte("*1\r\n$4\r\nPING\r\n"),
+			want:    []byte("+PONG\r\n"),
+		},
+		{
+			command: "ECHO",
+			payload: []byte("*2\r\n$4\r\nECHO\r\n$5\r\nhello\r\n"),
+			want:    []byte("$5\r\nhello\r\n"),
+		},
+		{
+			command: "ECHO",
+			payload: []byte("*2\r\n$4\r\nECHO\r\n$11\r\nhello world\r\n"),
+			want:    []byte("$11\r\nhello world\r\n"),
+		},
+		{
+			command: "ECHO",
+			payload: []byte("*3\r\n$4\r\nECHO\r\n$5\r\nhello\r\n$5\r\nworld\r\n"),
+			want:    []byte("-ERR wrong number of arguments for 'echo' command\r\n"),
+		},
+		{
+			command: "ECHO",
+			payload: []byte("*1\r\n$4\r\nECHO\r\n"),
+			want:    []byte("-ERR wrong number of arguments for 'echo' command\r\n"),
+		},
 	}
 
-	conn, err := net.Dial("tcp", addrStr)
+	for _, tt := range tests {
+		addrStr, err := startTestServer()
+		if err != nil {
+			t.Fatal("couldn't start test server: ", err)
+		}
 
-	if err != nil {
-		t.Fatal("couldn't connect to Redis server: ", err)
-	}
+		conn, err := net.Dial("tcp", addrStr)
 
-	defer conn.Close()
+		if err != nil {
+			t.Fatal("couldn't connect to Redis server: ", err)
+		}
 
-	pingPayload := []byte("*1\r\n$4\r\nPING\r\n")
+		defer conn.Close()
 
-	if _, err := conn.Write(pingPayload); err != nil {
-		t.Fatal("could not write PING payload to Redis server")
-	}
+		if _, err := conn.Write(tt.payload); err != nil {
+			t.Fatalf("could not write %s payload to Redis server", tt.command)
+		}
 
-	out := make([]byte, 1024)
-	expectedOut := []byte("+PONG\r\n")
-	bytesRead, err := conn.Read(out)
-	if err != nil {
-		t.Fatal("coudln't read PING response from Redis server: ", err)
-	}
-
-	if !bytes.Equal(expectedOut, out[:bytesRead]) {
-		t.Errorf("expected '%s', got '%s'\n", string(expectedOut), string(out[:bytesRead]))
-	}
-}
-
-func Test_Echo(t *testing.T) {
-	addrStr, err := startTestServer()
-	if err != nil {
-		t.Fatal("couldn't start test server: ", err)
-	}
-
-	conn, err := net.Dial("tcp", addrStr)
-
-	if err != nil {
-		t.Fatal("couldn't connect to Redis server: ", err)
-	}
-
-	defer conn.Close()
-
-	echoPayload := []byte("*2\r\n$4\r\nECHO\r\n$5\r\nhello\r\n")
-
-	if _, err := conn.Write(echoPayload); err != nil {
-		t.Fatal("could not write ECHO payload to Redis server")
-	}
-
-	out := make([]byte, 1024)
-	expectedOut := []byte("$5\r\nhello\r\n")
-	bytesRead, err := conn.Read(out)
-	if err != nil {
-		t.Fatal("couldn't read ECHO response from Redis server: ", err)
-	}
-
-	if !bytes.Equal(expectedOut, out[:bytesRead]) {
-		t.Errorf("expected '%s', got '%s'\n", string(expectedOut), string(out[:bytesRead]))
-	}
-}
-
-func Test_Echo_2(t *testing.T) {
-	addrStr, err := startTestServer()
-	if err != nil {
-		t.Fatal("couldn't start test server: ", err)
-	}
-
-	conn, err := net.Dial("tcp", addrStr)
-
-	if err != nil {
-		t.Fatal("couldn't connect to Redis server: ", err)
-	}
-
-	defer conn.Close()
-
-	echoPayload := []byte("*2\r\n$4\r\nECHO\r\n$11\r\nhello world\r\n")
-
-	if _, err := conn.Write(echoPayload); err != nil {
-		t.Fatal("could not write ECHO payload to Redis server")
-	}
-
-	out := make([]byte, 1024)
-	expectedOut := []byte("$11\r\nhello world\r\n")
-	bytesRead, err := conn.Read(out)
-	if err != nil {
-		t.Fatal("couldn't read ECHO response from Redis server: ", err)
-	}
-
-	if !bytes.Equal(expectedOut, out[:bytesRead]) {
-		t.Errorf("expected '%s', got '%s'\n", string(expectedOut), string(out[:bytesRead]))
+		out := make([]byte, 1024)
+		bytesRead, err := conn.Read(out)
+		if !bytes.Equal(tt.want, out[:bytesRead]) {
+			t.Errorf("expected '%s', got '%s'\n", string(tt.want), string(out[:bytesRead]))
+		}
 	}
 }
