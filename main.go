@@ -82,6 +82,11 @@ func RedisConnection(conn net.Conn) {
 			return
 		}
 
+		if response == nil {
+			log.Printf("Got empty response, waiting for more bytes")
+			continue
+		}
+
 		log.Printf("Writing response: '%s'", string(response))
 
 		_, err = conn.Write(response)
@@ -169,6 +174,11 @@ func parseData(buff []byte) ([]byte, int, error) {
 }
 
 func getResponse(message [][]byte) ([]byte, error) {
+	// edge case if message is *0\r\n
+	if len(message) == 0 {
+		return nil, nil
+	}
+
 	command := string(message[0])
 	switch command {
 	case "PING":
