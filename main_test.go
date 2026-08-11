@@ -80,7 +80,39 @@ func Test_Echo(t *testing.T) {
 	}
 
 	out := make([]byte, 1024)
-	expectedOut := []byte("+hello\r\n")
+	expectedOut := []byte("$5\r\nhello\r\n")
+	bytesRead, err := conn.Read(out)
+	if err != nil {
+		t.Fatal("couldn't read ECHO response from Redis server: ", err)
+	}
+
+	if !bytes.Equal(expectedOut, out[:bytesRead]) {
+		t.Errorf("expected '%s', got '%s'\n", string(expectedOut), string(out[:bytesRead]))
+	}
+}
+
+func Test_Echo_2(t *testing.T) {
+	addrStr, err := startTestServer()
+	if err != nil {
+		t.Fatal("couldn't start test server: ", err)
+	}
+
+	conn, err := net.Dial("tcp", addrStr)
+
+	if err != nil {
+		t.Fatal("couldn't connect to Redis server: ", err)
+	}
+
+	defer conn.Close()
+
+	echoPayload := []byte("*2\r\n$4\r\nECHO\r\n$11\r\nhello world\r\n")
+
+	if _, err := conn.Write(echoPayload); err != nil {
+		t.Fatal("could not write ECHO payload to Redis server")
+	}
+
+	out := make([]byte, 1024)
+	expectedOut := []byte("$11\r\nhello world\r\n")
 	bytesRead, err := conn.Read(out)
 	if err != nil {
 		t.Fatal("couldn't read ECHO response from Redis server: ", err)

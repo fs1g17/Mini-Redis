@@ -169,16 +169,12 @@ func parseData(buff []byte) ([]byte, int, error) {
 }
 
 func getResponse(message [][]byte) ([]byte, error) {
-	if len(message) == 1 {
-		if string(message[0]) == "PING" {
-			return []byte("+PONG\r\n"), nil
-		}
-	}
-
-	if len(message) == 2 {
-		if (string(message[0])) == "ECHO" {
-			return fmt.Appendf(nil, "+%s\r\n", string(message[1])), nil
-		}
+	command := string(message[0])
+	switch command {
+	case "PING":
+		return []byte("+PONG\r\n"), nil
+	case "ECHO":
+		return fmt.Appendf(nil, "$%d\r\n%s\r\n", len(message[1]), string(message[1])), nil
 	}
 
 	return nil, noMatchingResponseErr
