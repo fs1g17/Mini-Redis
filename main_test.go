@@ -515,4 +515,24 @@ func Test_ParseMessage(t *testing.T) {
 			t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
 		}
 	})
+
+	t.Run("multiple messages", func(t *testing.T) {
+		input := []byte("*1\r\n$4\r\nPING\r\n*1\r\n$4\r\nPING\r\n")
+		expected := [][]byte{
+			[]byte("PING"),
+		}
+		out, readBytes, err := parseMessage(input)
+
+		if err != nil {
+			t.Fatalf("didn't expect error, but got %v\n", err)
+		}
+
+		if readBytes != 14 {
+			t.Fatalf("expected readBytes to be 14, got %d\n", readBytes)
+		}
+
+		if !slices.EqualFunc(expected, out, bytes.Equal) {
+			t.Fatalf("expected: %q, got: %q\n", expected, out)
+		}
+	})
 }
