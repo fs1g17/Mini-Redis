@@ -424,4 +424,95 @@ func Test_ParseMessage(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("negative length", func(t *testing.T) {
+		input := []byte("*-2\r\n$4\r\nPING\r\n")
+		out, readBytes, err := parseMessage(input)
+		if err == nil {
+			t.Fatal("should've got error")
+		}
+
+		if !errors.Is(err, invalidMessageErr) {
+			t.Fatalf("expected invalidMessageErr, but got %v\n", err)
+		}
+
+		if len(out) != 0 {
+			t.Fatalf("expected length of output to be 0, got: %d", len(out))
+		}
+
+		if readBytes != 0 {
+			t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+		}
+	})
+
+	t.Run("non-digit length", func(t *testing.T) {
+		input := []byte("*abc")
+		out, readBytes, err := parseMessage(input)
+		if err == nil {
+			t.Fatal("should've got error")
+		}
+
+		if !errors.Is(err, invalidMessageErr) {
+			t.Fatalf("expected invalidMessageErr, but got %v\n", err)
+		}
+
+		if len(out) != 0 {
+			t.Fatalf("expected length of output to be 0, got: %d", len(out))
+		}
+
+		if readBytes != 0 {
+			t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+		}
+	})
+
+	t.Run("invalid chars", func(t *testing.T) {
+		tests := []struct {
+			input []byte
+		}{
+			{
+				input: []byte("*5\rx"),
+			},
+			{
+				input: []byte("*5x"),
+			},
+		}
+
+		for _, tt := range tests {
+			out, readBytes, err := parseMessage(tt.input)
+			if err == nil {
+				t.Fatal("should've got error")
+			}
+
+			if !errors.Is(err, invalidMessageErr) {
+				t.Fatalf("expected invalidMessageErr, but got %v\n", err)
+			}
+
+			if len(out) != 0 {
+				t.Fatalf("expected length of output to be 0, got: %d", len(out))
+			}
+
+			if readBytes != 0 {
+				t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+			}
+		}
+	})
+
+	t.Run("message too short", func(t *testing.T) {
+		// if it's too short - then we shouldn't get an error
+		// we treat it as incomplete - can't rely on \r\n because data can contain itf
+		input := []byte("*2\r\n$4\r\nECHO\r\n")
+		out, readBytes, err := parseMessage(input)
+		if err != nil {
+			t.Fatalf("didn't expect error, but got %v\n", err)
+		}
+
+		//TODO: maybe return nil in incomplete case instead?
+		if len(out) != 1 {
+			t.Fatalf("expected length of output to be 1, got: %d", len(out))
+		}
+
+		if readBytes != 0 {
+			t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+		}
+	})
 }
