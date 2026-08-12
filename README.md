@@ -164,3 +164,7 @@ Accept interfaces, return structs. Keep them minimal.
 - Redis protocol spec: the RESP section of redis.io/docs — authoritative for the wire format.
 - "Build Your Own Redis" (Build-Your-Own-X list) and CodeCrafters' Redis challenge — both good for checking your approach without copying.
 - Go stdlib docs: `net`, `bufio`, `sync`, `context`, `os/signal`.
+
+### Calling Redis
+
+`docker run --rm -it redis redis-cli -h host.docker.internal -p 6379 PING`
