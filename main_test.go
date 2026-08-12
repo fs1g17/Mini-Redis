@@ -120,8 +120,8 @@ func Test_ParseData(t *testing.T) {
 				t.Fatalf("got error: %v", err)
 			}
 
-			if !bytes.Equal(expectedBytes, out[:len(tt.expectedString)]) {
-				t.Fatalf("expected: %s, got: %s\n", string(expectedBytes), string(out[:len(tt.expectedString)]))
+			if !bytes.Equal(expectedBytes, out) {
+				t.Fatalf("expected: %s, got: %s\n", string(expectedBytes), string(out))
 			}
 
 			if readBytes != expectedReadBytes {
@@ -138,7 +138,7 @@ func Test_ParseData(t *testing.T) {
 		tests := make([]testStruct, 0, 10)
 
 		str := "$5\r\nhello\r\n"
-		for i := 0; i < len(str)-1; i++ {
+		for i := 0; i < len(str); i++ {
 			tests = append(tests, testStruct{input: []byte(str[:i])})
 		}
 
@@ -372,7 +372,7 @@ func Test_ParseMessage(t *testing.T) {
 		tests := make([]testStruct, 0, 10)
 
 		str := "*1\r\n$4\r\nPING\r\n"
-		for i := 0; i < len(str)-1; i++ {
+		for i := 0; i < len(str); i++ {
 			tests = append(tests, testStruct{input: []byte(str[:i])})
 		}
 
@@ -402,7 +402,7 @@ func Test_ParseMessage(t *testing.T) {
 		tests := make([]testStruct, 0, 10)
 		baseStr := "*2\r\n$4\r\nECHO\r\n"
 		str := "$5\r\nhello\r\n"
-		for i := 0; i < len(str)-1; i++ {
+		for i := 0; i < len(str); i++ {
 			tests = append(tests, testStruct{input: []byte(baseStr + str[:i])})
 		}
 
