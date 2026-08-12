@@ -8,9 +8,8 @@ import (
 	"strconv"
 )
 
-var invalidMessageErr = errors.New("invalid message")
 var invalidDataErr = errors.New("invalid data")
-var noMatchingResponseErr = errors.New("no matching response for message")
+var invalidMessageErr = errors.New("invalid message")
 
 func main() {
 	ln, err := net.Listen("tcp", ":6379")
