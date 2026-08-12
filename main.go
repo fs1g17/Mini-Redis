@@ -183,13 +183,13 @@ func parseData(buff []byte) ([]byte, int, error) {
 	data := make([]byte, 0, 512)
 	if len(buff) == 0 {
 		// incomplete data, need more bytes
-		return data, 0, nil
+		return nil, 0, nil
 	}
 
 	if buff[0] == '$' {
 		if len(buff) < 2 {
 			// incomplete data
-			return data, 0, nil
+			return nil, 0, nil
 		}
 
 		// ok so instead of all that we can read length until we get CR
@@ -201,7 +201,7 @@ func parseData(buff []byte) ([]byte, int, error) {
 			} else if buff[i] == '\r' {
 				break
 			} else {
-				return data, 0, invalidDataErr
+				return nil, 0, invalidDataErr
 			}
 		}
 
@@ -209,26 +209,26 @@ func parseData(buff []byte) ([]byte, int, error) {
 		lengthEnd := i
 		// missing length: $\r\n
 		if lengthEnd == 1 {
-			return data, 0, invalidDataErr
+			return nil, 0, invalidDataErr
 		}
 
 		// now we are at \r - need to validate next byte is \n
 		i++
 		if i >= len(buff) {
 			// expecting LF, but buffer too small, incomplete data
-			return data, 0, nil
+			return nil, 0, nil
 		}
 		if buff[i] != '\n' {
-			return data, 0, invalidDataErr
+			return nil, 0, invalidDataErr
 		}
 
 		length, err := strconv.Atoi(string(buff[1:lengthEnd]))
 		if err != nil {
-			return data, 0, invalidDataErr
+			return nil, 0, invalidDataErr
 		}
 
 		if length < 0 {
-			return data, 0, invalidDataErr
+			return nil, 0, invalidDataErr
 		}
 
 		// check if there's enough bytes to read
@@ -237,13 +237,13 @@ func parseData(buff []byte) ([]byte, int, error) {
 		// so it's lengthEnd + 2 + length + 2 - should take us to \r\n of the data
 		// which means we simplify it to lengthEnd + length + 4
 		if len(buff) < lengthEnd+length+4 {
-			return data, 0, nil // if the data is incomplete -> message incomplete
+			return nil, 0, nil // if the data is incomplete -> message incomplete
 		}
 
 		// if after the data we don't get \r\n, then data is malformed
 		// i.e it could be longer than specified - e.g. $2\r\nhi\r\n
 		if buff[lengthEnd+length+2] != '\r' || buff[lengthEnd+length+3] != '\n' {
-			return data, 0, invalidDataErr
+			return nil, 0, invalidDataErr
 		}
 
 		// we only read the data, but we "consume" the \r\n as well
@@ -255,7 +255,7 @@ func parseData(buff []byte) ([]byte, int, error) {
 		return data, lengthEnd + length + 4, nil
 	}
 
-	return data, 0, invalidDataErr
+	return nil, 0, invalidDataErr
 }
 
 func getResponse(message [][]byte) ([]byte, error) {

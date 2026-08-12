@@ -153,8 +153,8 @@ func Test_ParseData(t *testing.T) {
 					t.Fatal("should've read 0 bytes")
 				}
 
-				if len(out) != 0 {
-					t.Fatal("should have empty output")
+				if out != nil {
+					t.Fatal("should have nil output")
 				}
 			})
 		}
@@ -171,12 +171,12 @@ func Test_ParseData(t *testing.T) {
 			t.Fatalf("expected invalidDataErr, but got %v\n", err)
 		}
 
-		if len(out) != 0 {
-			t.Fatalf("expected length of output to be 0, got: %d", len(out))
-		}
-
 		if readBytes != 0 {
 			t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+		}
+
+		if out != nil {
+			t.Fatal("should have nil output")
 		}
 	})
 
@@ -191,12 +191,12 @@ func Test_ParseData(t *testing.T) {
 			t.Fatalf("expected invalidDataErr, but got %v\n", err)
 		}
 
-		if len(out) != 0 {
-			t.Fatalf("expected length of output to be 0, got: %d", len(out))
-		}
-
 		if readBytes != 0 {
 			t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+		}
+
+		if out != nil {
+			t.Fatal("should have nil output")
 		}
 	})
 
@@ -222,12 +222,12 @@ func Test_ParseData(t *testing.T) {
 				t.Fatalf("expected invalidDataErr, but got %v\n", err)
 			}
 
-			if len(out) != 0 {
-				t.Fatalf("expected length of output to be 0, got: %d", len(out))
-			}
-
 			if readBytes != 0 {
 				t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+			}
+
+			if out != nil {
+				t.Fatal("should have nil output")
 			}
 		}
 	})
@@ -257,12 +257,12 @@ func Test_ParseData(t *testing.T) {
 				t.Fatalf("expected invalidDataErr, but got %v\n", err)
 			}
 
-			if len(out) != 0 {
-				t.Fatalf("expected length of output to be 0, got: %d", len(out))
-			}
-
 			if readBytes != 0 {
 				t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+			}
+
+			if out != nil {
+				t.Fatal("should have nil output")
 			}
 		}
 	})
@@ -276,12 +276,12 @@ func Test_ParseData(t *testing.T) {
 			t.Fatalf("didn't expect error, but got %v\n", err)
 		}
 
-		if len(out) != 0 {
-			t.Fatalf("expected length of output to be 0, got: %d", len(out))
-		}
-
 		if readBytes != 0 {
 			t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+		}
+
+		if out != nil {
+			t.Fatal("should have nil output")
 		}
 	})
 
@@ -299,12 +299,12 @@ func Test_ParseData(t *testing.T) {
 			t.Fatalf("expected invalidDataErr, but got: %v\n", err)
 		}
 
-		if len(out) != 0 {
-			t.Fatalf("expected length of output to be 0, got: %d", len(out))
-		}
-
 		if readBytes != 0 {
 			t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+		}
+
+		if out != nil {
+			t.Fatal("should have nil output")
 		}
 	})
 }
