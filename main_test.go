@@ -387,8 +387,8 @@ func Test_ParseMessage(t *testing.T) {
 					t.Fatal("should've read 0 bytes")
 				}
 
-				if len(out) != 0 {
-					t.Fatal("should have empty output")
+				if out != nil {
+					t.Fatal("should have nil output")
 				}
 			})
 		}
@@ -417,9 +417,8 @@ func Test_ParseMessage(t *testing.T) {
 					t.Fatal("should've read 0 bytes")
 				}
 
-				expected := [][]byte{[]byte("ECHO")}
-				if !slices.EqualFunc(expected, out, bytes.Equal) {
-					t.Fatalf("expected: %q, got: %q\n", expected, out)
+				if out != nil {
+					t.Fatal("should have nil output")
 				}
 			})
 		}
@@ -435,13 +434,12 @@ func Test_ParseMessage(t *testing.T) {
 		if !errors.Is(err, invalidMessageErr) {
 			t.Fatalf("expected invalidMessageErr, but got %v\n", err)
 		}
-
-		if len(out) != 0 {
-			t.Fatalf("expected length of output to be 0, got: %d", len(out))
-		}
-
 		if readBytes != 0 {
 			t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+		}
+
+		if out != nil {
+			t.Fatal("should have nil output")
 		}
 	})
 
@@ -456,12 +454,12 @@ func Test_ParseMessage(t *testing.T) {
 			t.Fatalf("expected invalidMessageErr, but got %v\n", err)
 		}
 
-		if len(out) != 0 {
-			t.Fatalf("expected length of output to be 0, got: %d", len(out))
-		}
-
 		if readBytes != 0 {
 			t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+		}
+
+		if out != nil {
+			t.Fatal("should have nil output")
 		}
 	})
 
@@ -487,12 +485,12 @@ func Test_ParseMessage(t *testing.T) {
 				t.Fatalf("expected invalidMessageErr, but got %v\n", err)
 			}
 
-			if len(out) != 0 {
-				t.Fatalf("expected length of output to be 0, got: %d", len(out))
-			}
-
 			if readBytes != 0 {
 				t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+			}
+
+			if out != nil {
+				t.Fatal("should have nil output")
 			}
 		}
 	})
@@ -506,13 +504,12 @@ func Test_ParseMessage(t *testing.T) {
 			t.Fatalf("didn't expect error, but got %v\n", err)
 		}
 
-		//TODO: maybe return nil in incomplete case instead?
-		if len(out) != 1 {
-			t.Fatalf("expected length of output to be 1, got: %d", len(out))
-		}
-
 		if readBytes != 0 {
 			t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+		}
+
+		if out != nil {
+			t.Fatal("should have nil output")
 		}
 	})
 

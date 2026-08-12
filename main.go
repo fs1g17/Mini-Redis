@@ -100,14 +100,14 @@ func parseMessage(buff []byte) ([][]byte, int, error) {
 	message := make([][]byte, 0, 512)
 	if len(buff) == 0 {
 		// incomplete data, need more bytes
-		return message, 0, nil
+		return nil, 0, nil
 	}
 
 	// we can find the first \n with buff.IndexByte(message, '\n'), saw on the internet
 	if buff[0] == '*' {
 		if len(buff) < 2 {
 			// incomplete message
-			return message, 0, nil
+			return nil, 0, nil
 		}
 
 		i := 1
@@ -118,7 +118,7 @@ func parseMessage(buff []byte) ([][]byte, int, error) {
 			} else if buff[i] == '\r' {
 				break
 			} else {
-				return message, 0, invalidMessageErr
+				return nil, 0, invalidMessageErr
 			}
 		}
 
@@ -126,27 +126,27 @@ func parseMessage(buff []byte) ([][]byte, int, error) {
 		lengthEnd := i
 		// missing length: $\r\n
 		if lengthEnd == 1 {
-			return message, 0, invalidMessageErr
+			return nil, 0, invalidMessageErr
 		}
 
 		// now we are at \r - need to validate next byte is \n
 		i++
 		if i >= len(buff) {
 			// expecting LF, but buffer too small, incomplete message
-			return message, 0, nil
+			return nil, 0, nil
 		}
 		if buff[i] != '\n' {
 			// expecting LF, but byte isn't LF
-			return message, 0, invalidMessageErr
+			return nil, 0, invalidMessageErr
 		}
 
 		count, err := strconv.Atoi(string(buff[1:lengthEnd]))
 		if err != nil {
-			return message, 0, invalidMessageErr
+			return nil, 0, invalidMessageErr
 		}
 
 		if count < 0 {
-			return message, 0, invalidMessageErr
+			return nil, 0, invalidMessageErr
 		}
 
 		start := i + 1 // found \n, start of data is after
@@ -155,16 +155,16 @@ func parseMessage(buff []byte) ([][]byte, int, error) {
 		for range count {
 			if start >= len(buff) {
 				// incomplete message, no point trying to read data
-				return message, 0, nil
+				return nil, 0, nil
 			}
 
 			// instead of passing start, we can slice the buff
 			data, readBytes, err := parseData(buff[start:])
 			if err != nil {
-				return message, 0, invalidMessageErr // invalid data
+				return nil, 0, invalidMessageErr // invalid data
 			}
 			if readBytes == 0 {
-				return message, 0, nil // incomplete data, need more bytes
+				return nil, 0, nil // incomplete data, need more bytes
 			}
 
 			message = append(message, data)
@@ -174,7 +174,7 @@ func parseMessage(buff []byte) ([][]byte, int, error) {
 		return message, start, nil
 	}
 
-	return message, 0, invalidMessageErr
+	return nil, 0, invalidMessageErr
 }
 
 // returns the read data and number of bytes read
