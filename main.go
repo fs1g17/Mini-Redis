@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"log"
@@ -99,22 +98,63 @@ func RedisConnection(conn net.Conn) {
 
 func parseMessage(buff []byte) ([][]byte, int, error) {
 	message := make([][]byte, 0, 512)
+	if len(buff) == 0 {
+		// incomplete data, need more bytes
+		return message, 0, nil
+	}
 
-	// we can find the first \n with buff.IndexByte(data, '\n'), saw on the internet
+	// we can find the first \n with buff.IndexByte(message, '\n'), saw on the internet
 	if buff[0] == '*' {
-		countEnd := bytes.IndexByte(buff, '\n')
-		if countEnd == -1 {
-			// incomlpete data, need more bytes
+		if len(buff) < 2 {
+			// incomplete message
 			return message, 0, nil
 		}
 
-		// countEnd-1 because we need to stop before the \r
-		count, err := strconv.Atoi(string(buff[1 : countEnd-1]))
-		if err != nil {
-			return message, 0, invalidMessageErr // doesn't parse correctly
+		i := 1
+		for i = 1; i < len(buff); i++ {
+			if buff[i] >= '0' && buff[i] <= '9' {
+				// it's a digit
+				continue
+			} else if buff[i] == '\r' {
+				break
+			} else {
+				return message, 0, invalidMessageErr
+			}
 		}
 
-		start := countEnd + 1 // we found the first \n, start of the data is after \n
+		// position of \r
+		lengthEnd := i
+		// missing length: $\r\n
+		if lengthEnd == 1 {
+			return message, 0, invalidMessageErr
+		}
+
+		// now we are at \r - need to validate next byte is \n
+		i++
+		if i >= len(buff) {
+			// expecting LF, but buffer too small, incomplete message
+			return message, 0, nil
+		}
+		if buff[i] != '\n' {
+			// expecting LF, but byte isn't LF
+			return message, 0, invalidMessageErr
+		}
+
+		count, err := strconv.Atoi(string(buff[1:lengthEnd]))
+		if err != nil {
+			return message, 0, invalidMessageErr
+		}
+
+		if count < 0 {
+			return message, 0, invalidMessageErr
+		}
+
+		start := i + 1 // found \n, start of data is after
+
+		if start >= len(buff) {
+			// incomplete message, no point trying to read data
+			return message, 0, nil
+		}
 
 		// this is where we get
 		for range count {
@@ -156,7 +196,7 @@ func parseData(buff []byte) ([]byte, int, error) {
 		i := 1
 		for i = 1; i < len(buff); i++ {
 			if buff[i] >= '0' && buff[i] <= '9' {
-				// it is a digit, append to length slice
+				// it is a digit
 				continue
 			} else if buff[i] == '\r' {
 				break
