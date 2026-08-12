@@ -63,17 +63,7 @@ func RedisConnection(conn net.Conn) {
 				message = readMessage
 				completedMessage = true
 			}
-
-			log.Println("[")
-			for i := range len(readMessage) {
-				log.Println(string(readMessage[i]))
-			}
-			log.Println("]")
-
-			log.Printf("Bytes read: '%d'", bytesRead)
 		}
-
-		log.Printf("Raw bytes: '%v'", message)
 
 		response, err := getResponse(message)
 		if err != nil {
@@ -85,8 +75,6 @@ func RedisConnection(conn net.Conn) {
 			log.Printf("Got empty response, waiting for more bytes")
 			continue
 		}
-
-		log.Printf("Writing response: '%s'", string(response))
 
 		_, err = conn.Write(response)
 		if err != nil {
@@ -273,7 +261,7 @@ func getResponse(message [][]byte) ([]byte, error) {
 			return []byte("-ERR wrong number of arguments for 'echo' command\r\n"), nil
 		}
 		return fmt.Appendf(nil, "$%d\r\n%s\r\n", len(message[1]), string(message[1])), nil
+	default:
+		return fmt.Appendf(nil, "-ERR unknown command '%s'\r\n", command), nil
 	}
-
-	return nil, noMatchingResponseErr
 }
