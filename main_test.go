@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"testing"
 )
 
@@ -304,6 +305,62 @@ func Test_ParseData(t *testing.T) {
 
 		if readBytes != 0 {
 			t.Fatalf("expected readBytes to be 0, got %d\n", readBytes)
+		}
+	})
+}
+
+/*
+cases to test:
+  - valid message
+  - incomplete message
+  - invalid message
+  - negative length
+  - incorrect byte length
+*/
+func Test_ParseMessage(t *testing.T) {
+	t.Run("complete input", func(t *testing.T) {
+		tests := []struct {
+			input    []byte
+			expected [][]byte
+		}{
+			{
+				input:    []byte("*0\r\n"),
+				expected: [][]byte{},
+			},
+			{
+				input: []byte("*1\r\n$4\r\nPING\r\n"),
+				expected: [][]byte{
+					[]byte("PING"),
+				},
+			},
+			{
+				input: []byte("*1\r\n$4\r\nECHO\r\n"),
+				expected: [][]byte{
+					[]byte("ECHO"),
+				},
+			},
+			{
+				input: []byte("*2\r\n$4\r\nECHO\r\n$5\r\nhello\r\n"),
+				expected: [][]byte{
+					[]byte("ECHO"),
+					[]byte("hello"),
+				},
+			},
+		}
+
+		for _, tt := range tests {
+			out, readBytes, err := parseMessage(tt.input)
+			if err != nil {
+				t.Fatalf("got error: %v", err)
+			}
+
+			if readBytes != len(tt.input) {
+				t.Fatalf("expected readBytes %d, got %d\n", len(tt.input), readBytes)
+			}
+
+			if !slices.EqualFunc(tt.expected, out, bytes.Equal) {
+				t.Fatalf("expected: %q, got: %q\n", tt.expected, out)
+			}
 		}
 	})
 }
