@@ -151,13 +151,13 @@ func parseMessage(buff []byte) ([][]byte, int, error) {
 
 		start := i + 1 // found \n, start of data is after
 
-		if count > 0 && start >= len(buff) {
-			// incomplete message, no point trying to read data
-			return message, 0, nil
-		}
-
 		// this is where we get
 		for range count {
+			if start >= len(buff) {
+				// incomplete message, no point trying to read data
+				return message, 0, nil
+			}
+
 			// instead of passing start, we can slice the buff
 			data, readBytes, err := parseData(buff[start:])
 			if err != nil {

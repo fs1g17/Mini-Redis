@@ -363,4 +363,65 @@ func Test_ParseMessage(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("incomplete PING input", func(t *testing.T) {
+		type testStruct struct {
+			input []byte
+		}
+
+		tests := make([]testStruct, 0, 10)
+
+		str := "*1\r\n$4\r\nPING\r\n"
+		for i := 0; i < len(str)-1; i++ {
+			tests = append(tests, testStruct{input: []byte(str[:i])})
+		}
+
+		for _, tt := range tests {
+			t.Run(fmt.Sprintf("testing PING substring length: %d\n", len(tt.input)), func(t *testing.T) {
+				out, readBytes, err := parseMessage(tt.input)
+				if err != nil {
+					t.Fatal("shouldn't have an error")
+				}
+
+				if readBytes != 0 {
+					t.Fatal("should've read 0 bytes")
+				}
+
+				if len(out) != 0 {
+					t.Fatal("should have empty output")
+				}
+			})
+		}
+	})
+
+	t.Run("incomplete ECHO input", func(t *testing.T) {
+		type testStruct struct {
+			input []byte
+		}
+
+		tests := make([]testStruct, 0, 10)
+		baseStr := "*2\r\n$4\r\nECHO\r\n"
+		str := "$5\r\nhello\r\n"
+		for i := 0; i < len(str)-1; i++ {
+			tests = append(tests, testStruct{input: []byte(baseStr + str[:i])})
+		}
+
+		for _, tt := range tests {
+			t.Run(fmt.Sprintf("testing ECHO substring length: %d\n", len(tt.input)), func(t *testing.T) {
+				out, readBytes, err := parseMessage(tt.input)
+				if err != nil {
+					t.Fatal("shouldn't have an error")
+				}
+
+				if readBytes != 0 {
+					t.Fatal("should've read 0 bytes")
+				}
+
+				expected := [][]byte{[]byte("ECHO")}
+				if !slices.EqualFunc(expected, out, bytes.Equal) {
+					t.Fatalf("expected: %q, got: %q\n", expected, out)
+				}
+			})
+		}
+	})
 }
