@@ -21,6 +21,8 @@ func main() {
 
 	log.Printf("Listening on address: %s\n", ln.Addr().String())
 
+	store := NewRedisStore()
+
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -29,26 +31,18 @@ func main() {
 			continue
 		}
 
-		go RedisConnection(conn)
+		go RedisConnection(conn, store)
 	}
 }
 
-func RedisConnection(conn net.Conn) {
+func RedisConnection(conn net.Conn, store Store) {
 	defer conn.Close()
 
 	buff := make([]byte, 0, 1024)
 	for {
-		message := make([][]byte, 0)
-		completedMessage := false
-		for completedMessage == false {
-			data := make([]byte, 1024)
-			n, err := conn.Read(data)
-			if err != nil {
-				log.Printf("Got error reading: %v\n", err)
-				return
-			}
-			log.Printf("data: '%s' \n", string(data))
-			buff = append(buff, data[:n]...)
+		var message [][]byte
+		for {
+			// read buff first - in case more than 1 message came
 			readMessage, bytesRead, err := parseMessage(buff)
 			if err != nil {
 				log.Printf("Got error parsing: %v\n", err)
@@ -60,11 +54,19 @@ func RedisConnection(conn net.Conn) {
 				newBuff := make([]byte, 0, 1024)
 				buff = append(newBuff, buff[bytesRead:]...)
 				message = readMessage
-				completedMessage = true
+				break
 			}
+
+			data := make([]byte, 1024)
+			n, err := conn.Read(data)
+			if err != nil {
+				log.Printf("Got error reading: %v\n", err)
+				return
+			}
+			buff = append(buff, data[:n]...)
 		}
 
-		response, err := getResponse(message)
+		response, err := getResponse(message, store)
 		if err != nil {
 			log.Printf("Got error writing: %v\n", err)
 			return
@@ -245,7 +247,7 @@ func parseData(buff []byte) ([]byte, int, error) {
 	return nil, 0, invalidDataErr
 }
 
-func getResponse(message [][]byte) ([]byte, error) {
+func getResponse(message [][]byte, store Store) ([]byte, error) {
 	// edge case if message is *0\r\n
 	if len(message) == 0 {
 		return nil, nil
@@ -260,6 +262,48 @@ func getResponse(message [][]byte) ([]byte, error) {
 			return []byte("-ERR wrong number of arguments for 'echo' command\r\n"), nil
 		}
 		return fmt.Appendf(nil, "$%d\r\n%s\r\n", len(message[1]), string(message[1])), nil
+	case "SET":
+		if len(message) != 3 {
+			return []byte("-ERR wrong number of arguments for 'set' command\r\n"), nil
+		}
+		store.Set(string(message[1]), string(message[2]))
+		return []byte("+OK\r\n"), nil
+	case "GET":
+		if len(message) != 2 {
+			return []byte("-ERR wrong number of arguments for 'get' command\r\n"), nil
+		}
+
+		value, exists := store.Get(string(message[1]))
+		if !exists {
+			return []byte("$-1\r\n"), nil
+		}
+		return fmt.Appendf(nil, "$%d\r\n%s\r\n", len(value), value), nil
+	case "DEL":
+		if len(message) < 2 {
+			return []byte("-ERR wrong number of arguments for 'del' command\r\n"), nil
+		}
+
+		// need to get keys, these will be strings
+		keys := make([]string, len(message)-1)
+		for i := 1; i < len(message); i++ {
+			keys[i-1] = string(message[i])
+		}
+
+		deleted := store.Del(keys...)
+		return fmt.Appendf(nil, ":%d\r\n", deleted), nil
+	case "EXISTS":
+		if len(message) < 2 {
+			return []byte("-ERR wrong number of arguments for 'exists' command\r\n"), nil
+		}
+
+		// need to get keys, these will be strings
+		keys := make([]string, len(message)-1)
+		for i := 1; i < len(message); i++ {
+			keys[i-1] = string(message[i])
+		}
+
+		exists := store.Exists(keys...)
+		return fmt.Appendf(nil, ":%d\r\n", exists), nil
 	default:
 		return fmt.Appendf(nil, "-ERR unknown command '%s'\r\n", command), nil
 	}
