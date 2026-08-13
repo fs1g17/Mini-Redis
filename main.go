@@ -261,9 +261,18 @@ func getResponse(message [][]byte, store Store) ([]byte, error) {
 		if len(message) != 3 {
 			return []byte("-ERR wrong number of arguments for 'set' command\r\n"), nil
 		}
-
 		store.Set(string(message[1]), string(message[2]))
 		return []byte("+OK\r\n"), nil
+	case "GET":
+		if len(message) != 2 {
+			return []byte("-ERR wrong number of arguments for 'set' command\r\n"), nil
+		}
+
+		value, _ := store.Get(string(message[1]))
+		if value == nil {
+			return []byte("$-1\r\n"), nil
+		}
+		return fmt.Appendf(nil, "$%d\r\n%s\r\n", len(*value), *value), nil
 	case "ECHO":
 		if len(message) != 2 {
 			return []byte("-ERR wrong number of arguments for 'echo' command\r\n"), nil

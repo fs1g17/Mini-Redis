@@ -4,7 +4,7 @@ import "sync"
 
 type Store interface {
 	Set(key string, value string) error
-	Get(key string) (string, error)
+	Get(key string) (*string, error)
 	Del(key string) error
 	Exists(key string) (bool, error)
 }
@@ -28,11 +28,16 @@ func (r *RedisStore) Set(key string, value string) error {
 	return nil
 }
 
-func (r *RedisStore) Get(key string) (string, error) {
+func (r *RedisStore) Get(key string) (*string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	return r.data[key], nil
+	value, exists := r.data[key]
+	if !exists {
+		return nil, nil
+	}
+
+	return &value, nil
 }
 
 func (r *RedisStore) Del(key string) error {
