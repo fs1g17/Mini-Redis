@@ -40,7 +40,7 @@ func RedisConnection(conn net.Conn, store Store) {
 
 	buff := make([]byte, 0, 1024)
 	for {
-		message := make([][]byte, 0)
+		var message [][]byte
 		for {
 			// read buff first - in case more than 1 message came
 			readMessage, bytesRead, err := parseMessage(buff)
@@ -63,7 +63,6 @@ func RedisConnection(conn net.Conn, store Store) {
 				log.Printf("Got error reading: %v\n", err)
 				return
 			}
-			log.Printf("data: '%s' \n", string(data))
 			buff = append(buff, data[:n]...)
 		}
 
@@ -269,11 +268,11 @@ func getResponse(message [][]byte, store Store) ([]byte, error) {
 			return []byte("-ERR wrong number of arguments for 'get' command\r\n"), nil
 		}
 
-		value, _ := store.Get(string(message[1]))
-		if value == nil {
+		value, exists := store.Get(string(message[1]))
+		if !exists {
 			return []byte("$-1\r\n"), nil
 		}
-		return fmt.Appendf(nil, "$%d\r\n%s\r\n", len(*value), *value), nil
+		return fmt.Appendf(nil, "$%d\r\n%s\r\n", len(value), value), nil
 	case "ECHO":
 		if len(message) != 2 {
 			return []byte("-ERR wrong number of arguments for 'echo' command\r\n"), nil

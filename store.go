@@ -3,14 +3,14 @@ package main
 import "sync"
 
 type Store interface {
-	Set(key string, value string) error
-	Get(key string) (*string, error)
-	Del(key string) error
-	Exists(key string) (bool, error)
+	Set(key string, value string)
+	Get(key string) (string, bool)
+	Del(key string)
+	Exists(key string) bool
 }
 
 type RedisStore struct {
-	mu   sync.Mutex
+	mu   sync.RWMutex
 	data map[string]string
 }
 
@@ -20,39 +20,32 @@ func NewRedisStore() *RedisStore {
 	}
 }
 
-func (r *RedisStore) Set(key string, value string) error {
+func (r *RedisStore) Set(key string, value string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	r.data[key] = value
-	return nil
 }
 
-func (r *RedisStore) Get(key string) (*string, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *RedisStore) Get(key string) (string, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	value, exists := r.data[key]
-	if !exists {
-		return nil, nil
-	}
-
-	return &value, nil
+	return value, exists
 }
 
-func (r *RedisStore) Del(key string) error {
+func (r *RedisStore) Del(key string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	delete(r.data, key)
-
-	return nil
 }
 
-func (r *RedisStore) Exists(key string) (bool, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *RedisStore) Exists(key string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	_, ok := r.data[key]
-	return ok, nil
+	return ok
 }
