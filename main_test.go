@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+//TODO: add tests for 1 store, multiple clients
+
 var testServerFailure = errors.New("couldn't start test server")
 
 func Test_RedisConnection(t *testing.T) {

@@ -293,7 +293,7 @@ func getResponse(message [][]byte, store Store) ([]byte, error) {
 		return fmt.Appendf(nil, ":%d\r\n", deleted), nil
 	case "EXISTS":
 		if len(message) < 2 {
-			return []byte("-ERR wrong number of arguments for 'del' command\r\n"), nil
+			return []byte("-ERR wrong number of arguments for 'exists' command\r\n"), nil
 		}
 
 		// need to get keys, these will be strings
