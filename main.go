@@ -36,6 +36,8 @@ func main() {
 func RedisConnection(conn net.Conn) {
 	defer conn.Close()
 
+	store := NewRedisStore()
+
 	buff := make([]byte, 0, 1024)
 	for {
 		message := make([][]byte, 0)
@@ -64,7 +66,7 @@ func RedisConnection(conn net.Conn) {
 			}
 		}
 
-		response, err := getResponse(message)
+		response, err := getResponse(message, store)
 		if err != nil {
 			log.Printf("Got error writing: %v\n", err)
 			return
@@ -245,7 +247,7 @@ func parseData(buff []byte) ([]byte, int, error) {
 	return nil, 0, invalidDataErr
 }
 
-func getResponse(message [][]byte) ([]byte, error) {
+func getResponse(message [][]byte, store Store) ([]byte, error) {
 	// edge case if message is *0\r\n
 	if len(message) == 0 {
 		return nil, nil
@@ -255,6 +257,13 @@ func getResponse(message [][]byte) ([]byte, error) {
 	switch command {
 	case "PING":
 		return []byte("+PONG\r\n"), nil
+	case "SET":
+		if len(message) != 3 {
+			return []byte("-ERR wrong number of arguments for 'set' command\r\n"), nil
+		}
+
+		store.Set(string(message[1]), string(message[2]))
+		return []byte("+OK\r\n"), nil
 	case "ECHO":
 		if len(message) != 2 {
 			return []byte("-ERR wrong number of arguments for 'echo' command\r\n"), nil
