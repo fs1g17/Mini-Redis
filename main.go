@@ -278,6 +278,32 @@ func getResponse(message [][]byte, store Store) ([]byte, error) {
 			return []byte("$-1\r\n"), nil
 		}
 		return fmt.Appendf(nil, "$%d\r\n%s\r\n", len(value), value), nil
+	case "DEL":
+		if len(message) < 2 {
+			return []byte("-ERR wrong number of arguments for 'del' command\r\n"), nil
+		}
+
+		// need to get keys, these will be strings
+		keys := make([]string, len(message)-1)
+		for i := 1; i < len(message); i++ {
+			keys[i-1] = string(message[i])
+		}
+
+		deleted := store.Del(keys...)
+		return fmt.Appendf(nil, ":%d\r\n", deleted), nil
+	case "EXISTS":
+		if len(message) < 2 {
+			return []byte("-ERR wrong number of arguments for 'del' command\r\n"), nil
+		}
+
+		// need to get keys, these will be strings
+		keys := make([]string, len(message)-1)
+		for i := 1; i < len(message); i++ {
+			keys[i-1] = string(message[i])
+		}
+
+		exists := store.Exists(keys...)
+		return fmt.Appendf(nil, ":%d\r\n", exists), nil
 	default:
 		return fmt.Appendf(nil, "-ERR unknown command '%s'\r\n", command), nil
 	}
