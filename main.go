@@ -21,6 +21,8 @@ func main() {
 
 	log.Printf("Listening on address: %s\n", ln.Addr().String())
 
+	store := NewRedisStore()
+
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -29,28 +31,18 @@ func main() {
 			continue
 		}
 
-		go RedisConnection(conn)
+		go RedisConnection(conn, store)
 	}
 }
 
-func RedisConnection(conn net.Conn) {
+func RedisConnection(conn net.Conn, store Store) {
 	defer conn.Close()
-
-	store := NewRedisStore()
 
 	buff := make([]byte, 0, 1024)
 	for {
 		message := make([][]byte, 0)
-		completedMessage := false
-		for completedMessage == false {
-			data := make([]byte, 1024)
-			n, err := conn.Read(data)
-			if err != nil {
-				log.Printf("Got error reading: %v\n", err)
-				return
-			}
-			log.Printf("data: '%s' \n", string(data))
-			buff = append(buff, data[:n]...)
+		for {
+			// read buff first - in case more than 1 message came
 			readMessage, bytesRead, err := parseMessage(buff)
 			if err != nil {
 				log.Printf("Got error parsing: %v\n", err)
@@ -62,8 +54,17 @@ func RedisConnection(conn net.Conn) {
 				newBuff := make([]byte, 0, 1024)
 				buff = append(newBuff, buff[bytesRead:]...)
 				message = readMessage
-				completedMessage = true
+				break
 			}
+
+			data := make([]byte, 1024)
+			n, err := conn.Read(data)
+			if err != nil {
+				log.Printf("Got error reading: %v\n", err)
+				return
+			}
+			log.Printf("data: '%s' \n", string(data))
+			buff = append(buff, data[:n]...)
 		}
 
 		response, err := getResponse(message, store)
@@ -265,7 +266,7 @@ func getResponse(message [][]byte, store Store) ([]byte, error) {
 		return []byte("+OK\r\n"), nil
 	case "GET":
 		if len(message) != 2 {
-			return []byte("-ERR wrong number of arguments for 'set' command\r\n"), nil
+			return []byte("-ERR wrong number of arguments for 'get' command\r\n"), nil
 		}
 
 		value, _ := store.Get(string(message[1]))
