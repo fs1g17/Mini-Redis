@@ -5,8 +5,8 @@ import "sync"
 type Store interface {
 	Set(key string, value string)
 	Get(key string) (string, bool)
-	Del(key string)
-	Exists(key string) bool
+	Del(key ...string) int
+	Exists(key ...string) int
 }
 
 type RedisStore struct {
@@ -35,17 +35,35 @@ func (r *RedisStore) Get(key string) (string, bool) {
 	return value, exists
 }
 
-func (r *RedisStore) Del(key string) {
+func (r *RedisStore) Del(keys ...string) int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	delete(r.data, key)
+	deleted := 0
+	for _, key := range keys {
+		_, ok := r.data[key]
+		if !ok {
+			continue
+		}
+		delete(r.data, key)
+		deleted++
+	}
+
+	return deleted
 }
 
-func (r *RedisStore) Exists(key string) bool {
+func (r *RedisStore) Exists(keys ...string) int {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	_, ok := r.data[key]
-	return ok
+	exists := 0
+	for _, key := range keys {
+		_, ok := r.data[key]
+		if !ok {
+			continue
+		}
+		exists++
+	}
+
+	return exists
 }

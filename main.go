@@ -257,6 +257,11 @@ func getResponse(message [][]byte, store Store) ([]byte, error) {
 	switch command {
 	case "PING":
 		return []byte("+PONG\r\n"), nil
+	case "ECHO":
+		if len(message) != 2 {
+			return []byte("-ERR wrong number of arguments for 'echo' command\r\n"), nil
+		}
+		return fmt.Appendf(nil, "$%d\r\n%s\r\n", len(message[1]), string(message[1])), nil
 	case "SET":
 		if len(message) != 3 {
 			return []byte("-ERR wrong number of arguments for 'set' command\r\n"), nil
@@ -273,11 +278,6 @@ func getResponse(message [][]byte, store Store) ([]byte, error) {
 			return []byte("$-1\r\n"), nil
 		}
 		return fmt.Appendf(nil, "$%d\r\n%s\r\n", len(value), value), nil
-	case "ECHO":
-		if len(message) != 2 {
-			return []byte("-ERR wrong number of arguments for 'echo' command\r\n"), nil
-		}
-		return fmt.Appendf(nil, "$%d\r\n%s\r\n", len(message[1]), string(message[1])), nil
 	default:
 		return fmt.Appendf(nil, "-ERR unknown command '%s'\r\n", command), nil
 	}
