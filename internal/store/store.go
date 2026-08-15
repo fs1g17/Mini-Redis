@@ -32,11 +32,13 @@ func (r *RedisStore) Set(key string, value string) {
 	defer r.mu.Unlock()
 
 	r.data[key] = value
+
+	delete(r.expire, key)
 }
 
 func (r *RedisStore) Get(key string) (string, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	r.checkExpire(key)
 
@@ -50,6 +52,7 @@ func (r *RedisStore) Del(keys ...string) int {
 
 	deleted := 0
 	for _, key := range keys {
+		r.checkExpire(key)
 		_, ok := r.data[key]
 		if !ok {
 			continue
@@ -93,14 +96,22 @@ func (r *RedisStore) Expire(key string, sec int64) bool {
 	return true
 }
 
-func (r *RedisStore) TTL(key string) (bool, int64, bool) {
+func (r *RedisStore) TTL(key string) int64 {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	r.checkExpire(key)
 
-	_, ok := r.data[key]
-	expiration, ok2 := r.expire[key]
+	_, keyOk := r.data[key]
+	if !keyOk {
+		return -2
+	}
 
-	return ok, expiration, ok2
+	expiration, expirationOk := r.expire[key]
+	if !expirationOk {
+		return -1
+	}
+
+	ttl := time.Now().Unix() - expiration
+	return ttl
 }

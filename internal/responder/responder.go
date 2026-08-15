@@ -3,7 +3,6 @@ package responder
 import (
 	"fmt"
 	"strconv"
-	"time"
 )
 
 type Store interface {
@@ -12,7 +11,7 @@ type Store interface {
 	Del(keys ...string) int
 	Exists(keys ...string) int
 	Expire(key string, sec int64) bool
-	TTL(key string) (bool, int64, bool)
+	TTL(key string) int64
 }
 
 func GetResponse(message [][]byte, store Store) ([]byte, error) {
@@ -94,14 +93,8 @@ func GetResponse(message [][]byte, store Store) ([]byte, error) {
 		}
 
 		key := string(message[1])
-		keyExists, expiration, expirationExists := store.TTL(key)
-		if !keyExists && !expirationExists {
-			return []byte(":-2\r\n"), nil
-		} else if !expirationExists {
-			return []byte(":-1\r\n"), nil
-		} else {
-			return fmt.Appendf(nil, ":%d\r\n", expiration-time.Now().Unix()), nil
-		}
+		ttl := store.TTL(key)
+		return fmt.Appendf(nil, ":%d\r\n", ttl), nil
 	default:
 		return fmt.Appendf(nil, "-ERR unknown command '%s'\r\n", command), nil
 	}
