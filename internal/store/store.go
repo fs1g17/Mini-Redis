@@ -9,10 +9,11 @@ type RedisStore struct {
 	mu     sync.RWMutex
 	data   map[string]string
 	expire map[string]int64
+	now    func() time.Time
 }
 
 func (r *RedisStore) checkExpire(key string) {
-	now := time.Now().Unix()
+	now := r.now().Unix()
 
 	if expiration, toBeExpired := r.expire[key]; toBeExpired && now >= expiration {
 		delete(r.data, key)
@@ -24,6 +25,7 @@ func NewRedisStore() *RedisStore {
 	return &RedisStore{
 		data:   make(map[string]string, 512),
 		expire: make(map[string]int64, 512),
+		now:    time.Now,
 	}
 }
 
@@ -91,7 +93,7 @@ func (r *RedisStore) Expire(key string, sec int64) bool {
 		return false
 	}
 
-	r.expire[key] = time.Now().Unix() + sec
+	r.expire[key] = r.now().Unix() + sec
 
 	return true
 }
@@ -112,6 +114,6 @@ func (r *RedisStore) TTL(key string) int64 {
 		return -1
 	}
 
-	ttl := expiration - time.Now().Unix()
+	ttl := expiration - r.now().Unix()
 	return ttl
 }

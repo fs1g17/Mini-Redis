@@ -5,10 +5,21 @@ import (
 	"time"
 )
 
+var startTime time.Time = time.Date(2012, 07, 15, 0, 0, 0, 0, time.UTC)
+var currTime time.Time = startTime
+
+func Now() time.Time {
+	return currTime
+}
+
 func Test_Set(t *testing.T) {
-	store := NewRedisStore()
+	store := &RedisStore{
+		data:   make(map[string]string, 512),
+		expire: make(map[string]int64, 512),
+		now:    Now,
+	}
 	store.data["key"] = "value"
-	store.expire["key"] = time.Now().Unix() + 200
+	store.expire["key"] = Now().Unix() + 200
 
 	store.Set("foo", "bar")
 	if len(store.data) != 2 || store.data["foo"] != "bar" {
@@ -42,10 +53,14 @@ func Test_Get(t *testing.T) {
 }
 
 func Test_Del(t *testing.T) {
-	store := NewRedisStore()
+	store := &RedisStore{
+		data:   make(map[string]string, 512),
+		expire: make(map[string]int64, 512),
+		now:    Now,
+	}
 	store.data["foo"] = "bar"
 	store.data["foo2"] = "bar2"
-	store.expire["foo"] = time.Now().Unix() + int64(1000)
+	store.expire["foo"] = Now().Unix() + int64(1000)
 
 	count := store.Del("foo3")
 	if count != 0 {
@@ -63,11 +78,14 @@ func Test_Del(t *testing.T) {
 }
 
 func Test_Exists(t *testing.T) {
-	now := time.Now().Unix()
-	store := NewRedisStore()
+	store := &RedisStore{
+		data:   make(map[string]string, 512),
+		expire: make(map[string]int64, 512),
+		now:    Now,
+	}
 	store.data["foo"] = "bar"
 	store.data["foo2"] = "bar2"
-	store.expire["foo2"] = now
+	store.expire["foo2"] = startTime.Unix()
 
 	count := store.Exists("foo", "foo2")
 	if count != 1 {
@@ -76,7 +94,11 @@ func Test_Exists(t *testing.T) {
 }
 
 func Test_Expire(t *testing.T) {
-	store := NewRedisStore()
+	store := &RedisStore{
+		data:   make(map[string]string, 512),
+		expire: make(map[string]int64, 512),
+		now:    Now,
+	}
 	store.data["foo"] = "bar"
 
 	ok := store.Expire("foo2", 20)
@@ -96,14 +118,28 @@ func Test_Expire(t *testing.T) {
 }
 
 func Test_TTL(t *testing.T) {
-	store := NewRedisStore()
+	store := &RedisStore{
+		data:   make(map[string]string, 512),
+		expire: make(map[string]int64, 512),
+		now:    Now,
+	}
 	store.data["foo"] = "bar"
 	store.data["foo2"] = "bar2"
-	store.expire["foo"] = time.Now().Unix() + 20
+	store.expire["foo"] = Now().Unix() + 20
 
 	ttl := store.TTL("foo")
 	if ttl != 20 {
 		t.Fatal("expected ttl to be 20")
+	}
+
+	currTime = startTime.Add(5 * time.Second)
+	defer func() {
+		currTime = startTime
+	}()
+
+	ttl = store.TTL("foo")
+	if ttl != 15 {
+		t.Fatal("expected ttl to be 15")
 	}
 
 	ttl = store.TTL("foo2")
