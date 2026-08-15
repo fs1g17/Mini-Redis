@@ -112,6 +112,6 @@ func (r *RedisStore) TTL(key string) int64 {
 		return -1
 	}
 
-	ttl := time.Now().Unix() - expiration
+	ttl := expiration - time.Now().Unix()
 	return ttl
 }

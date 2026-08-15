@@ -7,15 +7,22 @@ import (
 
 func Test_Set(t *testing.T) {
 	store := NewRedisStore()
+	store.data["key"] = "value"
+	store.expire["key"] = time.Now().Unix() + 200
 
 	store.Set("foo", "bar")
-	if len(store.data) != 1 || store.data["foo"] != "bar" {
+	if len(store.data) != 2 || store.data["foo"] != "bar" {
 		t.Fatal("expected 'set' to correctly set data")
 	}
 
 	store.Set("foo", "car")
-	if len(store.data) != 1 || store.data["foo"] != "car" {
+	if len(store.data) != 2 || store.data["foo"] != "car" {
 		t.Fatal("expected 'set' to correctly set data")
+	}
+
+	store.Set("key", "newValue")
+	if len(store.data) != 2 || store.data["key"] != "newValue" || len(store.expire) != 0 {
+		t.Fatal("expected 'set' to correctly clear expiration")
 	}
 }
 
@@ -85,5 +92,27 @@ func Test_Expire(t *testing.T) {
 	_, ok = store.expire["foo"]
 	if !ok {
 		t.Fatal("expected expiry present on the correct key")
+	}
+}
+
+func Test_TTL(t *testing.T) {
+	store := NewRedisStore()
+	store.data["foo"] = "bar"
+	store.data["foo2"] = "bar2"
+	store.expire["foo"] = time.Now().Unix() + 20
+
+	ttl := store.TTL("foo")
+	if ttl != 20 {
+		t.Fatal("expected ttl to be 20")
+	}
+
+	ttl = store.TTL("foo2")
+	if ttl != -1 {
+		t.Fatal("expected ttl to be -1 for persistent keys")
+	}
+
+	ttl = store.TTL("foo3")
+	if ttl != -2 {
+		t.Fatal("expected ttl to be -2 for non-existent key")
 	}
 }
