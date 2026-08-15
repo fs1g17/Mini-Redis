@@ -11,6 +11,15 @@ type RedisStore struct {
 	expire map[string]int64
 }
 
+func (r *RedisStore) checkExpire(key string) {
+	now := time.Now().Unix()
+
+	if expiration, toBeExpired := r.expire[key]; toBeExpired && now >= expiration {
+		delete(r.data, key)
+		delete(r.expire, key)
+	}
+}
+
 func NewRedisStore() *RedisStore {
 	return &RedisStore{
 		data:   make(map[string]string, 512),
@@ -29,14 +38,7 @@ func (r *RedisStore) Get(key string) (string, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	now := time.Now().Unix()
-
-	// check if expired first
-	if expiration, toBeExpired := r.expire[key]; toBeExpired && now >= expiration {
-		// delete from both
-		delete(r.data, key)
-		delete(r.expire, key)
-	}
+	r.checkExpire(key)
 
 	value, exists := r.data[key]
 	return value, exists
@@ -64,14 +66,9 @@ func (r *RedisStore) Exists(keys ...string) int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	now := time.Now().Unix()
-
 	exists := 0
 	for _, key := range keys {
-		if expiration, expire := r.expire[key]; expire && now >= expiration {
-			delete(r.data, key)
-			delete(r.expire, key)
-		}
+		r.checkExpire(key)
 
 		_, ok := r.data[key]
 		if !ok {
@@ -94,4 +91,16 @@ func (r *RedisStore) Expire(key string, sec int64) bool {
 	r.expire[key] = time.Now().Unix() + sec
 
 	return true
+}
+
+func (r *RedisStore) TTL(key string) (bool, int64, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.checkExpire(key)
+
+	_, ok := r.data[key]
+	expiration, ok2 := r.expire[key]
+
+	return ok, expiration, ok2
 }
