@@ -53,6 +53,7 @@ func (r *RedisStore) Del(keys ...string) int {
 			continue
 		}
 		delete(r.data, key)
+		delete(r.expire, key)
 		deleted++
 	}
 
@@ -60,11 +61,18 @@ func (r *RedisStore) Del(keys ...string) int {
 }
 
 func (r *RedisStore) Exists(keys ...string) int {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	now := time.Now().Unix()
 
 	exists := 0
 	for _, key := range keys {
+		if expiration, expire := r.expire[key]; expire && now >= expiration {
+			delete(r.data, key)
+			delete(r.expire, key)
+		}
+
 		_, ok := r.data[key]
 		if !ok {
 			continue
