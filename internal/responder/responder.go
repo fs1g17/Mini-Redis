@@ -77,8 +77,8 @@ func GetResponse(message [][]byte, store Store) ([]byte, error) {
 
 		key := string(message[1])
 		sec, err := strconv.Atoi(string(message[2]))
-		if err != nil {
-			return []byte("-ERR seconds must be an int\r\n"), nil
+		if err != nil || sec < 0 {
+			return []byte("-ERR seconds must be positive int\r\n"), nil
 		}
 
 		keyExists := store.Expire(key, int64(sec))
