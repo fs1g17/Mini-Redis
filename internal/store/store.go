@@ -1,13 +1,6 @@
-package main
+package store
 
 import "sync"
-
-type Store interface {
-	Set(key string, value string)
-	Get(key string) (string, bool)
-	Del(keys ...string) int
-	Exists(keys ...string) int
-}
 
 type RedisStore struct {
 	mu   sync.RWMutex
