@@ -3,6 +3,7 @@ package responder
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 type Store interface {
@@ -21,7 +22,7 @@ func GetResponse(message [][]byte, store Store) ([]byte, error) {
 		return nil, nil
 	}
 
-	command := string(message[0])
+	command := strings.ToUpper(string(message[0]))
 	switch command {
 	case "PING":
 		return []byte("+PONG\r\n"), nil
