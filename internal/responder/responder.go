@@ -2,6 +2,7 @@ package responder
 
 import (
 	"fmt"
+	"strconv"
 )
 
 type Store interface {
@@ -9,6 +10,9 @@ type Store interface {
 	Get(key string) (string, bool)
 	Del(keys ...string) int
 	Exists(keys ...string) int
+	Expire(key string, sec int64) bool
+	TTL(key string) int64
+	Incr(key string) (int, error)
 }
 
 func GetResponse(message [][]byte, store Store) ([]byte, error) {
@@ -68,6 +72,41 @@ func GetResponse(message [][]byte, store Store) ([]byte, error) {
 
 		exists := store.Exists(keys...)
 		return fmt.Appendf(nil, ":%d\r\n", exists), nil
+	case "EXPIRE":
+		if len(message) != 3 {
+			return []byte("-ERR wrong number of arguments for 'expire' command\r\n"), nil
+		}
+
+		key := string(message[1])
+		sec, err := strconv.Atoi(string(message[2]))
+		if err != nil || sec < 0 {
+			return []byte("-ERR seconds must be positive int\r\n"), nil
+		}
+
+		keyExists := store.Expire(key, int64(sec))
+		if keyExists {
+			return []byte(":1\r\n"), nil
+		}
+		return []byte(":0\r\n"), nil
+	case "TTL":
+		if len(message) != 2 {
+			return []byte("-ERR wrong number of arguments for 'ttl' command\r\n"), nil
+		}
+
+		key := string(message[1])
+		ttl := store.TTL(key)
+		return fmt.Appendf(nil, ":%d\r\n", ttl), nil
+	case "INCR":
+		if len(message) != 2 {
+			return []byte("-ERR wrong number of arguments for 'incr' command\r\n"), nil
+		}
+
+		key := string(message[1])
+		value, err := store.Incr(key)
+		if err != nil {
+			return fmt.Appendf(nil, "-ERR value is not an integer or out of range\r\n"), nil
+		}
+		return fmt.Appendf(nil, ":%d\r\n", value), nil
 	default:
 		return fmt.Appendf(nil, "-ERR unknown command '%s'\r\n", command), nil
 	}
