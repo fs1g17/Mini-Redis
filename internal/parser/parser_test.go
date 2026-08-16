@@ -30,6 +30,10 @@ func Test_ParseData(t *testing.T) {
 				input:          []byte("$0\r\n\r\n"),
 				expectedString: "",
 			},
+			{
+				input:          []byte("$11\r\naaaaaaaaaaa\r\n"),
+				expectedString: "aaaaaaaaaaa",
+			},
 		}
 
 		for _, tt := range tests {

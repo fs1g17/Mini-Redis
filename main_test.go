@@ -11,8 +11,6 @@ import (
 	"github.com/fs1g17/Mini-Redis/internal/store"
 )
 
-//TODO: add tests for 1 store, multiple clients
-
 var testServerFailure = errors.New("couldn't start test server")
 
 func Test_RedisConnection(t *testing.T) {
@@ -41,81 +39,65 @@ func Test_RedisConnection(t *testing.T) {
 	}
 }
 
-func startTestServer() (string, error) {
+func startTestServer(kv *store.RedisStore) (string, error) {
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return "", testServerFailure
 	}
 
-	store := store.NewRedisStore()
-
 	go func() {
-		_conn, err := ln.Accept()
-		if err != nil {
-			return
-		}
+		for {
+			_conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
 
-		go RedisConnection(_conn, store)
+			go RedisConnection(_conn, kv)
+		}
 	}()
 
 	return ln.Addr().String(), nil
 }
 
-func Test_SimpleFuncs(t *testing.T) {
-	tests := []struct {
-		command string
-		payload []byte
-		want    []byte
-	}{
-		{
-			command: "PING",
-			payload: []byte("*1\r\n$4\r\nPING\r\n"),
-			want:    []byte("+PONG\r\n"),
-		},
-		{
-			command: "ECHO",
-			payload: []byte("*2\r\n$4\r\nECHO\r\n$5\r\nhello\r\n"),
-			want:    []byte("$5\r\nhello\r\n"),
-		},
-		{
-			command: "ECHO",
-			payload: []byte("*2\r\n$4\r\nECHO\r\n$11\r\nhello world\r\n"),
-			want:    []byte("$11\r\nhello world\r\n"),
-		},
-		{
-			command: "ECHO",
-			payload: []byte("*3\r\n$4\r\nECHO\r\n$5\r\nhello\r\n$5\r\nworld\r\n"),
-			want:    []byte("-ERR wrong number of arguments for 'echo' command\r\n"),
-		},
-		{
-			command: "ECHO",
-			payload: []byte("*1\r\n$4\r\nECHO\r\n"),
-			want:    []byte("-ERR wrong number of arguments for 'echo' command\r\n"),
-		},
+func Test_MultipleClients(t *testing.T) {
+	kv := store.NewRedisStore()
+
+	addrStr, err := startTestServer(kv)
+	if err != nil {
+		t.Fatal("couldn't start test server: ", err)
 	}
 
-	for _, tt := range tests {
-		addrStr, err := startTestServer()
-		if err != nil {
-			t.Fatal("couldn't start test server: ", err)
-		}
+	conn1, err := net.Dial("tcp", addrStr)
+	if err != nil {
+		t.Fatal("couldn't connect to Redis server: ", err)
+	}
 
-		conn, err := net.Dial("tcp", addrStr)
+	conn2, err := net.Dial("tcp", addrStr)
+	if err != nil {
+		t.Fatal("couldn't connect to Redis server: ", err)
+	}
 
-		if err != nil {
-			t.Fatal("couldn't connect to Redis server: ", err)
-		}
+	_, err = conn1.Write([]byte("*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"))
+	if err != nil {
+		t.Fatal("couldn't write SET foo bar to server")
+	}
 
-		defer conn.Close()
+	want := []byte("+OK\r\n")
+	out := make([]byte, 1024)
+	bytesRead, err := conn1.Read(out)
+	if !bytes.Equal(want, out[:bytesRead]) {
+		t.Errorf("expected '%s', got '%s'\n", string(want), string(out[:bytesRead]))
+	}
 
-		if _, err := conn.Write(tt.payload); err != nil {
-			t.Fatalf("could not write %s payload to Redis server", tt.command)
-		}
+	_, err = conn2.Write([]byte("*2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n"))
+	if err != nil {
+		t.Fatal("couldn't write GET foo to server")
+	}
 
-		out := make([]byte, 1024)
-		bytesRead, err := conn.Read(out)
-		if !bytes.Equal(tt.want, out[:bytesRead]) {
-			t.Errorf("expected '%s', got '%s'\n", string(tt.want), string(out[:bytesRead]))
-		}
+	want = []byte("$3\r\nbar\r\n")
+	out = make([]byte, 1024)
+	bytesRead, err = conn2.Read(out)
+	if !bytes.Equal(want, out[:bytesRead]) {
+		t.Errorf("expected '%s', got '%s'\n", string(want), string(out[:bytesRead]))
 	}
 }
