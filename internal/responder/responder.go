@@ -12,6 +12,7 @@ type Store interface {
 	Exists(keys ...string) int
 	Expire(key string, sec int64) bool
 	TTL(key string) int64
+	Incr(key string) (int, error)
 }
 
 func GetResponse(message [][]byte, store Store) ([]byte, error) {
@@ -95,6 +96,17 @@ func GetResponse(message [][]byte, store Store) ([]byte, error) {
 		key := string(message[1])
 		ttl := store.TTL(key)
 		return fmt.Appendf(nil, ":%d\r\n", ttl), nil
+	case "INCR":
+		if len(message) != 2 {
+			return []byte("-ERR wrong number of arguments for 'incr' command\r\n"), nil
+		}
+
+		key := string(message[1])
+		value, err := store.Incr(key)
+		if err != nil {
+			return fmt.Appendf(nil, "-ERR value is not an integer or out of range\r\n"), nil
+		}
+		return fmt.Appendf(nil, ":%d\r\n", value), nil
 	default:
 		return fmt.Appendf(nil, "-ERR unknown command '%s'\r\n", command), nil
 	}

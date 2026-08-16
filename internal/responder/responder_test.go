@@ -332,6 +332,57 @@ func Test_Response(t *testing.T) {
 		}
 	})
 
+	t.Run("test INCR response", func(t *testing.T) {
+		store := store.NewRedisStore()
+
+		store.Set("foo", "12")
+		store.Set("foo2", "bar2")
+
+		tests := []struct {
+			message [][]byte
+			want    []byte
+		}{
+			{
+				message: [][]byte{
+					[]byte("INCR"),
+				},
+				want: []byte("-ERR wrong number of arguments for 'incr' command\r\n"),
+			},
+			{
+				message: [][]byte{
+					[]byte("INCR"),
+					[]byte("new"),
+				},
+				want: []byte(":0\r\n"),
+			},
+			{
+				message: [][]byte{
+					[]byte("INCR"),
+					[]byte("foo"),
+				},
+				want: []byte(":13\r\n"),
+			},
+			{
+				message: [][]byte{
+					[]byte("INCR"),
+					[]byte("foo2"),
+				},
+				want: []byte("-ERR value is not an integer or out of range\r\n"),
+			},
+		}
+
+		for _, tt := range tests {
+			got, err := GetResponse(tt.message, store)
+			if err != nil {
+				t.Errorf("didn't expect error, but got: %v", err)
+			}
+
+			if !bytes.Equal(got, tt.want) {
+				t.Errorf("want %q, got %q", tt.want, got)
+			}
+		}
+	})
+
 	t.Run("test unknown command response", func(t *testing.T) {
 		store := store.NewRedisStore()
 

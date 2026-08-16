@@ -1,6 +1,7 @@
 package store
 
 import (
+	"strconv"
 	"sync"
 	"time"
 )
@@ -116,4 +117,25 @@ func (r *RedisStore) TTL(key string) int64 {
 
 	ttl := expiration - r.now().Unix()
 	return ttl
+}
+
+func (r *RedisStore) Incr(key string) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.checkExpire(key)
+
+	value, keyOk := r.data[key]
+	if !keyOk {
+		r.data[key] = "0"
+		return 0, nil
+	}
+
+	valueInt, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, err
+	}
+
+	r.data[key] = strconv.Itoa(valueInt + 1)
+	return valueInt + 1, nil
 }

@@ -1,6 +1,9 @@
 package store
 
 import (
+	"errors"
+	"fmt"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -150,5 +153,88 @@ func Test_TTL(t *testing.T) {
 	ttl = store.TTL("foo3")
 	if ttl != -2 {
 		t.Fatal("expected ttl to be -2 for non-existent key")
+	}
+}
+
+func Test_Incr(t *testing.T) {
+	store := &RedisStore{
+		data:   make(map[string]string, 512),
+		expire: make(map[string]int64, 512),
+		now:    Now,
+	}
+	store.data["foo"] = "12"
+	store.data["foo2"] = "bar"
+
+	value, err := store.Incr("new")
+	if err != nil {
+		t.Fatalf("expected err to be nil, got %v\n", err)
+	}
+
+	if value != 0 {
+		t.Fatalf("expected 0, got: %d\n", value)
+	}
+
+	// --- here ---
+
+	value, err = store.Incr("foo")
+	if err != nil {
+		t.Fatalf("expected err to be nil, got %v\n", err)
+	}
+
+	if value != 13 {
+		t.Fatalf("expected 13, got: %d\n", value)
+	}
+	// --- here ---
+
+	value, err = store.Incr("foo2")
+	if err == nil {
+		t.Fatalf("epxected err to be not nil, got %v\n", err)
+	}
+
+}
+
+func Test_Poop(t *testing.T) {
+	store := &RedisStore{
+		data:   make(map[string]string, 512),
+		expire: make(map[string]int64, 512),
+		now:    Now,
+	}
+	store.data["foo"] = "12"
+	store.data["foo2"] = "bar"
+
+	tests := []struct {
+		key           string
+		expectedError error
+		expectedValue int
+	}{
+		{
+			key:           "new",
+			expectedError: nil,
+			expectedValue: 0,
+		},
+		{
+			key:           "foo",
+			expectedError: nil,
+			expectedValue: 13,
+		},
+		{
+			key:           "foo2",
+			expectedError: strconv.ErrSyntax,
+			expectedValue: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("Test INCR with key %s\n", tt.key), func(t *testing.T) {
+			value, err := store.Incr(tt.key)
+
+			if (tt.expectedError == nil && err != nil) || !errors.Is(err, tt.expectedError) {
+				t.Fatalf("want err: %v, got: %v", tt.expectedError, err)
+			}
+
+			if value != tt.expectedValue {
+				t.Fatalf("want %d, got: %d", tt.expectedValue, value)
+			}
+		})
 	}
 }
