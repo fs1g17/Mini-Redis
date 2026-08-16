@@ -127,8 +127,8 @@ func (r *RedisStore) Incr(key string) (int, error) {
 
 	value, keyOk := r.data[key]
 	if !keyOk {
-		r.data[key] = "0"
-		return 0, nil
+		r.data[key] = "1"
+		return 1, nil
 	}
 
 	valueInt, err := strconv.Atoi(value)

@@ -353,7 +353,7 @@ func Test_Response(t *testing.T) {
 					[]byte("INCR"),
 					[]byte("new"),
 				},
-				want: []byte(":0\r\n"),
+				want: []byte(":1\r\n"),
 			},
 			{
 				message: [][]byte{

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 )
@@ -165,43 +166,6 @@ func Test_Incr(t *testing.T) {
 	store.data["foo"] = "12"
 	store.data["foo2"] = "bar"
 
-	value, err := store.Incr("new")
-	if err != nil {
-		t.Fatalf("expected err to be nil, got %v\n", err)
-	}
-
-	if value != 0 {
-		t.Fatalf("expected 0, got: %d\n", value)
-	}
-
-	// --- here ---
-
-	value, err = store.Incr("foo")
-	if err != nil {
-		t.Fatalf("expected err to be nil, got %v\n", err)
-	}
-
-	if value != 13 {
-		t.Fatalf("expected 13, got: %d\n", value)
-	}
-	// --- here ---
-
-	value, err = store.Incr("foo2")
-	if err == nil {
-		t.Fatalf("epxected err to be not nil, got %v\n", err)
-	}
-
-}
-
-func Test_Poop(t *testing.T) {
-	store := &RedisStore{
-		data:   make(map[string]string, 512),
-		expire: make(map[string]int64, 512),
-		now:    Now,
-	}
-	store.data["foo"] = "12"
-	store.data["foo2"] = "bar"
-
 	tests := []struct {
 		key           string
 		expectedError error
@@ -210,7 +174,7 @@ func Test_Poop(t *testing.T) {
 		{
 			key:           "new",
 			expectedError: nil,
-			expectedValue: 0,
+			expectedValue: 1,
 		},
 		{
 			key:           "foo",
@@ -236,5 +200,28 @@ func Test_Poop(t *testing.T) {
 				t.Fatalf("want %d, got: %d", tt.expectedValue, value)
 			}
 		})
+	}
+}
+
+func Test_ConcurrentIncr(t *testing.T) {
+	store := &RedisStore{
+		data:   make(map[string]string, 512),
+		expire: make(map[string]int64, 512),
+		now:    Now,
+	}
+
+	var wg sync.WaitGroup
+	for range 100 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			store.Incr("foo")
+		}()
+	}
+	wg.Wait()
+
+	value, ok := store.data["foo"]
+	if !ok || value != "100" {
+		t.Fatalf("want 100, got: %s\n", value)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -99,5 +100,56 @@ func Test_MultipleClients(t *testing.T) {
 	bytesRead, err = conn2.Read(out)
 	if !bytes.Equal(want, out[:bytesRead]) {
 		t.Errorf("expected '%s', got '%s'\n", string(want), string(out[:bytesRead]))
+	}
+}
+
+func Test_ConcurrentClients(t *testing.T) {
+	kv := store.NewRedisStore()
+
+	addrStr, err := startTestServer(kv)
+	if err != nil {
+		t.Fatal("couldn't start test server: ", err)
+	}
+
+	responses := make([]string, 100)
+
+	var wg sync.WaitGroup
+	for i := range 100 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			conn, err := net.Dial("tcp", addrStr)
+			if err != nil {
+				responses[i] = "Failed to connect"
+				return
+			}
+
+			_, err = conn.Write([]byte("*2\r\n$4\r\nINCR\r\n$3\r\nfoo\r\n"))
+			if err != nil {
+				responses[i] = "Failed to write"
+				return
+			}
+
+			out := make([]byte, 1024)
+			bytesRead, err := conn.Read(out)
+			if err != nil {
+				responses[i] = "Failed to read"
+				return
+			}
+
+			responses[i] = string(out[:bytesRead])
+		}()
+	}
+
+	wg.Wait()
+
+	value, exists := kv.Get("foo")
+	if !exists {
+		t.Fatal("expected foo to exist")
+	}
+
+	if value != "100" {
+		t.Fatalf("want 100, got: %s\n", value)
 	}
 }
